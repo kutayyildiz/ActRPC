@@ -1,0 +1,7 @@
+# Rust
+target
+# Neovim / Vim backups, swap files, and misc
+*~
+*.bak
+**/*.sw[abcdeipsw]   # covers .swp .swo .swn .swx etc.
+**/*.rs.bk           # very old rustfmt backups (almost never seen anymore)
