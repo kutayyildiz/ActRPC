@@ -12,8 +12,8 @@ pub enum JsonRpcMessage {
 
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
 pub struct JsonRpcRequest {
-    pub jsonrpc: String,   // always "2.0"
-    pub id: Option<Value>, // null / number / string
+    pub jsonrpc: String,
+    pub id: Option<Value>,
     pub method: String,
     #[serde(default, skip_serializing_if = "Value::is_null")]
     pub params: Value,

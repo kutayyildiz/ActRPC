@@ -9,7 +9,29 @@
 ```json
 {
   "action": "modify_params",
+  "action_params": "<object | array>"
+}
+```
+
+### modify_result
+
+**Action**
+
+```json
+{
+  "action": "modify_result",
   "action_params": "<any>"
+}
+```
+
+### modify_error
+
+**Action**
+
+```json
+{
+  "action": "modify_error",
+  "action_params": "<object>"
 }
 ```
 
@@ -20,7 +42,10 @@
 ```json
 {
   "action": "call_external_method",
-  "action_params": { "method_name": "<string>", "method_params": "<object>" }
+  "action_params": {
+    "method_name": "<string>",
+    "method_params": "<object | array>"
+  }
 }
 ```
 

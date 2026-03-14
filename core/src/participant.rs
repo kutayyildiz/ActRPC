@@ -10,7 +10,6 @@ pub enum ParticipantType {
 
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
 pub struct Participant {
-    #[serde(rename = "type")]
-    pub r#type: ParticipantType,
+    pub kind: ParticipantType,
     pub id: String,
 }
