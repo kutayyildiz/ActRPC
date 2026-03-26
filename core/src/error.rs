@@ -1,53 +1,86 @@
 use serde::{Deserialize, Serialize};
+use serde_json::Value;
 use thiserror::Error;
 
-#[derive(Debug, Error, Clone, PartialEq, Serialize, Deserialize)]
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize, Error)]
 #[serde(tag = "type")]
 #[non_exhaustive]
-pub enum JorinError {
-    #[error("action execution failed: {0}")]
-    ActionExecution(#[from] ActionExecutionError),
+pub enum ActRpcError {
+    #[error(transparent)]
+    Action(#[from] ActionError),
 
-    #[error("interceptor error: {0}")]
+    #[error(transparent)]
     Interceptor(#[from] InterceptorError),
 
     #[error("invalid JSON-RPC message: {message}")]
     InvalidMessage { message: String },
 
-    #[error("serialization error: {message}")]
-    Serialization { message: String },
+    #[error(transparent)]
+    Codec(#[from] CodecError),
 
     #[error("internal orchestrator error: {message}")]
     Internal { message: String },
 }
 
-#[derive(Debug, Error, Clone, PartialEq, Serialize, Deserialize)]
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize, Error)]
 #[non_exhaustive]
-pub enum ActionExecutionError {
-    #[error("invalid parameters for action '{action}'")]
-    InvalidParams { action: String },
-
-    #[error("action '{action}' forbidden by policy")]
+pub enum ActionError {
+    #[error("action forbidden by policy: {action}")]
     ForbiddenCapability { action: String },
 
-    #[error("unsupported action '{action}'")]
+    #[error("unsupported action at dispatch: {action}")]
     UnsupportedAction { action: String },
 
     #[error("target '{target}' not found")]
     TargetNotFound { target: String },
 
-    #[error("external method error: {message}")]
-    ExternalMethodError { message: String },
+    #[error("remote call failed: {message}")]
+    RemoteCallFailed { message: String },
 
-    #[error("internal orchestrator error")]
-    Internal,
+    #[error("invalid params: {params}")]
+    InvalidParams { params: String },
+
+    #[error("internal orchestrator error: {message}")]
+    Internal { message: String },
 }
 
-#[derive(Debug, Error, Clone, PartialEq, Serialize, Deserialize)]
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize, Error)]
 #[non_exhaustive]
 pub enum InterceptorError {
-    #[error("interceptor '{name}' failed: {reason}")]
-    ExecutionFailed { name: String, reason: String },
-    #[error("malformed response from interceptor")]
-    MalformedResponse,
+    #[error("interceptor '{name}' decision failed: {reason}")]
+    DecisionFailed { name: String, reason: String },
+
+    #[error("interceptor '{name}' returned malformed response: {reason}")]
+    MalformedResponse { name: String, reason: String },
+}
+
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize, Error)]
+#[non_exhaustive]
+pub enum CodecError {
+    #[error("unsupported action: {action}")]
+    UnsupportedAction { action: String },
+
+    #[error("failed to decode requested action '{action}' params: {reason}; params={params}")]
+    DecodeRequestedParams {
+        action: String,
+        params: Value,
+        reason: String,
+    },
+
+    #[error("failed to decode resolved action '{action}' params: {reason}; params={params}")]
+    DecodeResolvedParams {
+        action: String,
+        params: Value,
+        reason: String,
+    },
+
+    #[error("failed to decode resolved action '{action}' result: {reason}; result={result}")]
+    DecodeResolvedResult {
+        action: String,
+        result: Value,
+        reason: String,
+    },
+
+    #[error("mismatched action kind: expected {expected}, got {actual}")]
+    MismatchedActionKind { expected: String, actual: String },
 }
