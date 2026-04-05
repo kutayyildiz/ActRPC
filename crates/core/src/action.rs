@@ -1,4 +1,3 @@
-mod executor;
 mod kind;
 mod requested_action;
 mod requested_action_record;
@@ -9,10 +8,7 @@ mod spec;
 pub mod specs;
 pub mod types;
 
-pub use executor::ActionExecutor;
-
 pub use kind::ActionKind;
-
 pub use spec::ActionSpec;
 
 pub use requested_action::RequestedAction;
