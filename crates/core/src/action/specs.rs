@@ -30,7 +30,6 @@ macro_rules! impl_action_spec {
     };
 }
 
-// Or better: define many at once
 impl_action_spec! {
     ModifyParams => (JsonRpcParams, NoOutput),
     ModifyResult => (Value, NoOutput),

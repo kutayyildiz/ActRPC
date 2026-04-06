@@ -1,15 +1,15 @@
 use crate::{
     action::{ActionKind, ActionSpec, ResolvedAction},
-    error::ActionError,
+    error::ActionExecutionError,
 };
 use serde::{Deserialize, Serialize};
 use serde_json::Value;
 
-#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
+#[derive(Debug, Clone, Serialize, Deserialize, PartialEq)]
 pub struct ResolvedActionRecord {
     pub kind: ActionKind,
     pub params: Value,
-    pub result: Result<Value, ActionError>,
+    pub result: Result<Value, ActionExecutionError>,
 }
 
 impl<A> TryFrom<&ResolvedAction<A>> for ResolvedActionRecord

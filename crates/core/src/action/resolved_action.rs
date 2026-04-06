@@ -1,40 +1,38 @@
 use crate::{
     action::{ActionSpec, ResolvedActionRecord},
-    error::{ActionError, CodecError},
+    error::{ActionCodecError, ActionExecutionError},
 };
 
 #[derive(Debug, Clone, PartialEq)]
 pub struct ResolvedAction<A: ActionSpec> {
     pub params: A::Params,
-    pub result: Result<A::Result, ActionError>,
+    pub result: Result<A::Result, ActionExecutionError>,
 }
 
 impl<A> ResolvedAction<A>
 where
     A: ActionSpec,
 {
-    fn decode_from_record(value: &ResolvedActionRecord) -> Result<Self, CodecError> {
+    fn decode_from_record(value: &ResolvedActionRecord) -> Result<Self, ActionCodecError> {
         if value.kind != A::KIND {
-            return Err(CodecError::MismatchedActionKind {
-                expected: A::KIND.to_string(),
-                actual: value.kind.to_string(),
+            return Err(ActionCodecError::KindMismatch {
+                expected: A::KIND,
+                actual: value.kind.clone(),
             });
         }
 
         let params = serde_json::from_value(value.params.clone()).map_err(|e| {
-            CodecError::DecodeResolvedParams {
-                action: value.kind.to_string(),
-                params: value.params.clone(),
-                reason: e.to_string(),
+            ActionCodecError::InvalidParams {
+                action: value.kind.clone(),
+                source: e,
             }
         })?;
 
         let result = match &value.result {
             Ok(v) => Ok(serde_json::from_value(v.clone()).map_err(|e| {
-                CodecError::DecodeResolvedResult {
-                    action: value.kind.to_string(),
-                    result: v.clone(),
-                    reason: e.to_string(),
+                ActionCodecError::InvalidResult {
+                    action: value.kind.clone(),
+                    source: e,
                 }
             })?),
             Err(err) => Err(err.clone()),
@@ -48,7 +46,7 @@ impl<A> TryFrom<&ResolvedActionRecord> for ResolvedAction<A>
 where
     A: ActionSpec,
 {
-    type Error = CodecError;
+    type Error = ActionCodecError;
 
     fn try_from(value: &ResolvedActionRecord) -> Result<Self, Self::Error> {
         Self::decode_from_record(value)
@@ -59,7 +57,7 @@ impl<A> TryFrom<ResolvedActionRecord> for ResolvedAction<A>
 where
     A: ActionSpec,
 {
-    type Error = CodecError;
+    type Error = ActionCodecError;
 
     fn try_from(value: ResolvedActionRecord) -> Result<Self, Self::Error> {
         Self::decode_from_record(&value)
