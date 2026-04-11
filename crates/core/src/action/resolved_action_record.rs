@@ -12,24 +12,6 @@ pub struct ResolvedActionRecord {
     pub result: Result<Value, ActionExecutionError>,
 }
 
-impl<A> TryFrom<&ResolvedAction<A>> for ResolvedActionRecord
-where
-    A: ActionSpec,
-{
-    type Error = serde_json::Error;
-
-    fn try_from(value: &ResolvedAction<A>) -> Result<Self, Self::Error> {
-        Ok(Self {
-            kind: A::KIND,
-            params: serde_json::to_value(&value.params)?,
-            result: match &value.result {
-                Ok(ok) => Ok(serde_json::to_value(ok)?),
-                Err(err) => Err(err.clone()),
-            },
-        })
-    }
-}
-
 impl<A> TryFrom<ResolvedAction<A>> for ResolvedActionRecord
 where
     A: ActionSpec,
@@ -40,7 +22,7 @@ where
 
     fn try_from(value: ResolvedAction<A>) -> Result<Self, Self::Error> {
         Ok(Self {
-            kind: A::KIND,
+            kind: A::KIND.into(),
             params: serde_json::to_value(value.params)?,
             result: match value.result {
                 Ok(ok) => Ok(serde_json::to_value(ok)?),

@@ -14,9 +14,9 @@ where
     A: ActionSpec,
 {
     fn decode_from_record(value: &ResolvedActionRecord) -> Result<Self, ActionCodecError> {
-        if value.kind != A::KIND {
+        if value.kind != A::KIND.into() {
             return Err(ActionCodecError::KindMismatch {
-                expected: A::KIND,
+                expected: A::KIND.into(),
                 actual: value.kind.clone(),
             });
         }
@@ -39,17 +39,6 @@ where
         };
 
         Ok(Self { params, result })
-    }
-}
-
-impl<A> TryFrom<&ResolvedActionRecord> for ResolvedAction<A>
-where
-    A: ActionSpec,
-{
-    type Error = ActionCodecError;
-
-    fn try_from(value: &ResolvedActionRecord) -> Result<Self, Self::Error> {
-        Self::decode_from_record(value)
     }
 }
 

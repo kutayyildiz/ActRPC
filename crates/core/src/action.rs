@@ -5,9 +5,6 @@ mod resolved_action;
 mod resolved_action_record;
 mod spec;
 
-pub mod specs;
-pub mod types;
-
 pub use kind::ActionKind;
 pub use spec::ActionSpec;
 
