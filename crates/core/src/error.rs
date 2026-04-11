@@ -14,6 +14,11 @@ pub use protocol::ProtocolError;
 
 use crate::json_rpc::JsonRpcError;
 
+/// Umbrella error for operations implemented inside `actrpc-core`.
+///
+/// This type is not intended to represent every runtime error in the ActRPC
+/// ecosystem. Runtime crates should define their own crate-local error enums
+/// and convert from core errors where appropriate.
 #[non_exhaustive]
 #[derive(Debug, thiserror::Error)]
 pub enum Error {
@@ -32,7 +37,7 @@ pub enum Error {
     #[error(transparent)]
     Policy(#[from] PolicyError),
 
-    #[error("remote JSON-RPC error {}: {}", ._0.code, ._0.message)]
+    #[error("remote JSON-RPC error {code}: {message}", code = .0.code, message = .0.message)]
     RemoteJsonRpc(JsonRpcError),
 
     #[error(transparent)]

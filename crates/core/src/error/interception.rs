@@ -11,7 +11,4 @@ pub enum InterceptionError {
 
     #[error(transparent)]
     ActionCodec(#[from] ActionCodecError),
-
-    #[error("internal interception error: {message}")]
-    Internal { message: String },
 }

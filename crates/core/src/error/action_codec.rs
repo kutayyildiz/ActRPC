@@ -3,9 +3,6 @@ use crate::action::ActionKind;
 #[non_exhaustive]
 #[derive(Debug, thiserror::Error)]
 pub enum ActionCodecError {
-    #[error("unknown action kind: {kind}")]
-    UnknownActionKind { kind: String },
-
     #[error("action kind mismatch: expected {expected}, got {actual}")]
     KindMismatch {
         expected: ActionKind,
