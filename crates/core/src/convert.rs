@@ -1,8 +1,13 @@
 use crate::{
     error::{ActRpcError, CodecError, ProtocolError},
     interception::{InterceptionRequest, InterceptionResponse},
-    json_rpc::{JsonRpcId, JsonRpcParams, JsonRpcRequest, JsonRpcResponse, JsonRpcVersion},
+    json_rpc::{
+        JsonRpcId, JsonRpcParams, JsonRpcRequest, JsonRpcResponse, JsonRpcSuccessResponse,
+        JsonRpcVersion,
+    },
 };
+
+pub const INTERCEPT_METHOD: &str = "intercept";
 
 impl From<(JsonRpcId, InterceptionRequest)> for JsonRpcRequest {
     fn from((id, req): (JsonRpcId, InterceptionRequest)) -> Self {
@@ -16,7 +21,7 @@ impl From<(JsonRpcId, InterceptionRequest)> for JsonRpcRequest {
         JsonRpcRequest {
             jsonrpc: JsonRpcVersion::V2_0,
             id,
-            method: "intercept".to_string(),
+            method: INTERCEPT_METHOD.to_string(),
             params: Some(JsonRpcParams::Object(map)),
         }
     }
@@ -43,9 +48,9 @@ impl TryFrom<JsonRpcRequest> for (JsonRpcId, InterceptionRequest) {
     type Error = ActRpcError;
 
     fn try_from(req: JsonRpcRequest) -> Result<Self, Self::Error> {
-        if req.method != "intercept" {
+        if req.method != INTERCEPT_METHOD {
             return Err(ActRpcError::Protocol(ProtocolError::UnexpectedMethod {
-                expected: ("intercept".to_string()),
+                expected: (INTERCEPT_METHOD.to_string()),
                 actual: (req.method),
             }));
         };
@@ -68,7 +73,7 @@ impl From<(JsonRpcId, InterceptionResponse)> for JsonRpcResponse {
         let result =
             serde_json::to_value(resp).expect("InterceptionResponse must always serialize to JSON");
 
-        JsonRpcResponse::Success(super::JsonRpcSuccessResponse {
+        JsonRpcResponse::Success(JsonRpcSuccessResponse {
             jsonrpc: JsonRpcVersion::V2_0,
             id,
             result,
