@@ -1,0 +1,5 @@
+error: only structs with named fields are supported
+ --> tests/compile/fail/describe_value_tuple_struct.rs:5:1
+  |
+5 | struct Payload(String);
+  | ^^^^^^^^^^^^^^^^^^^^^^^

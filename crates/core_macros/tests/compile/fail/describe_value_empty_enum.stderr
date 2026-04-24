@@ -1,0 +1,5 @@
+error: DescribeValue does not support empty enums
+ --> tests/compile/fail/describe_value_empty_enum.rs:6:1
+  |
+6 | enum Empty {}
+  | ^^^^^^^^^^^^^

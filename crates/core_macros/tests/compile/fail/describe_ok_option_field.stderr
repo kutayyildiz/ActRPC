@@ -1,0 +1,5 @@
+error: DescribeOk does not allow Option<T> fields
+ --> tests/compile/fail/describe_ok_option_field.rs:6:17
+  |
+6 |     maybe_name: Option<String>,
+  |                 ^^^^^^^^^^^^^^

@@ -1,0 +1,8 @@
+error: enums are not supported by this derive
+ --> tests/compile/fail/describe_params_enum.rs:5:1
+  |
+5 | / enum Params {
+6 | |     A(String),
+7 | |     B(i32),
+8 | | }
+  | |_^
