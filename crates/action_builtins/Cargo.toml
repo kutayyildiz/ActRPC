@@ -1,7 +1,0 @@
-[package]
-name = "actrpc_action_builtins"
-version = "0.1.0"
-edition = "2024"
-
-[dependencies]
-actrpc_core = { path = "../core" }
