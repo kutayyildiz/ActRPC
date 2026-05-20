@@ -1,7 +1,4 @@
-use crate::{
-    action::{ActionDescriptor, ActionSpec},
-    descriptor::types::{OkDescriptor, ParamsDescriptor, ValueDescriptor},
-};
+use crate::descriptor::types::{OkDescriptor, ParamsDescriptor, ValueDescriptor};
 
 pub trait DescribeValue {
     fn describe_value() -> ValueDescriptor;
@@ -14,15 +11,3 @@ pub trait DescribeParams {
 pub trait DescribeOk {
     fn describe_ok() -> Option<OkDescriptor>;
 }
-
-pub trait DescribeActionSpec: ActionSpec {
-    fn descriptor() -> ActionDescriptor {
-        ActionDescriptor {
-            kind: Self::action_kind(),
-            params: <Self::Params as DescribeParams>::describe_params(),
-            ok: <Self::Result as DescribeOk>::describe_ok(),
-        }
-    }
-}
-
-impl<T> DescribeActionSpec for T where T: ActionSpec {}
