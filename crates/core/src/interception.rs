@@ -3,5 +3,5 @@ mod request;
 mod response;
 
 pub use phase::InterceptionPhase;
-pub use request::InterceptionRequest;
+pub use request::*;
 pub use response::{InterceptionResponse, InterceptorContinuation};

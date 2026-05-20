@@ -108,7 +108,7 @@ async fn outbound_action_mutates_message_before_downstream_send() {
 
     let seen = interceptor.seen();
     assert_eq!(seen.len(), 1);
-    assert!(seen[0].prior_actions.is_empty());
+    assert!(seen[0].resolved_action_history.is_empty());
 }
 
 #[tokio::test]
@@ -148,7 +148,7 @@ async fn inbound_action_mutates_final_response() {
     let seen = interceptor.seen();
     assert_eq!(seen.len(), 1);
     assert_eq!(seen[0].message, response_message(json!("original")));
-    assert!(seen[0].prior_actions.is_empty());
+    assert!(seen[0].resolved_action_history.is_empty());
 }
 
 #[tokio::test]
@@ -300,18 +300,19 @@ async fn reinvoke_reuses_prior_actions_only_for_same_interceptor() {
 
     let first_seen = first.seen();
     assert_eq!(first_seen.len(), 2);
-    assert!(first_seen[0].prior_actions.is_empty());
-    assert_eq!(first_seen[1].prior_actions.len(), 1);
+    assert!(first_seen[0].resolved_action_history.is_empty());
+    assert_eq!(first_seen[1].resolved_action_history.len(), 1);
+    assert_eq!(first_seen[1].resolved_action_history[0].len(), 1);
     assert_eq!(
-        first_seen[1].prior_actions[0].kind,
+        first_seen[1].resolved_action_history[0][0].kind,
         ModifyParams::action_kind()
     );
 
     let second_seen = second.seen();
     assert_eq!(second_seen.len(), 1);
     assert!(
-        second_seen[0].prior_actions.is_empty(),
-        "prior_actions must not leak from one interceptor to the next"
+        second_seen[0].resolved_action_history.is_empty(),
+        "resolved_action_history must not leak from one interceptor to the next"
     );
 
     let sent = client.sent();

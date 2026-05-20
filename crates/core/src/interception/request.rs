@@ -8,13 +8,28 @@ use serde::{Deserialize, Serialize};
 pub struct InterceptionRequest {
     pub origin: Participant,
     pub message: JsonRpcMessage,
+
     #[serde(default, skip_serializing_if = "Vec::is_empty")]
-    pub prior_actions: Vec<ResolvedActionRecord>,
+    pub resolved_action_history: Vec<Vec<ResolvedActionRecord>>,
 }
 
 impl InterceptionRequest {
+    pub fn has_resolved_actions(&self) -> bool {
+        self.resolved_action_history
+            .iter()
+            .any(|actions| !actions.is_empty())
+    }
+
     pub fn has_prior_actions(&self) -> bool {
-        !self.prior_actions.is_empty()
+        self.has_resolved_actions()
+    }
+
+    pub fn get_last_resolved_actions(&self) -> Option<&[ResolvedActionRecord]> {
+        self.resolved_action_history.last().map(Vec::as_slice)
+    }
+
+    pub fn iter_resolved_action_rounds(&self) -> impl Iterator<Item = &[ResolvedActionRecord]> {
+        self.resolved_action_history.iter().map(Vec::as_slice)
     }
 
     pub fn phase(&self) -> Result<InterceptionPhase, ProtocolError> {

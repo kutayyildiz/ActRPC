@@ -140,6 +140,6 @@ fn dummy_request() -> InterceptionRequest {
             method: "test".to_owned(),
             params: None,
         })),
-        prior_actions: vec![],
+        resolved_action_history: Default::default(),
     }
 }

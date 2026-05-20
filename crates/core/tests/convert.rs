@@ -23,7 +23,7 @@ fn test_interception_request_into_json_rpc_request() {
             method: "subtract".to_string(),
             params: Some(JsonRpcParams::Array(vec![json!(10), json!(3)])),
         })),
-        prior_actions: vec![],
+        resolved_action_history: Default::default(),
     };
 
     let req: JsonRpcRequest = (JsonRpcId::Number(1.into()), payload.clone()).into();

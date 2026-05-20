@@ -109,10 +109,10 @@ impl CallExecution {
                     message: source.to_string(),
                 })?;
 
-            let mut prior_actions = Vec::new();
+            let mut resolved_action_history: Vec<Vec<ResolvedActionRecord>> = Vec::new();
 
             loop {
-                let request = self.build_interception_request(&prior_actions)?;
+                let request = self.build_interception_request(&resolved_action_history)?;
 
                 let response = entry
                     .interceptor
@@ -128,6 +128,8 @@ impl CallExecution {
                 let should_reinvoke = response.should_reinvoke();
 
                 self.validate_policy(phase.phase, &entry, &response.actions)?;
+
+                let mut round_actions = Vec::new();
 
                 for requested_action in response.actions {
                     let action_kind = requested_action.kind.clone();
@@ -150,11 +152,15 @@ impl CallExecution {
                                 })
                             })?;
 
-                    prior_actions.push(resolved);
+                    round_actions.push(resolved);
 
                     if self.call.rejection.is_rejected() {
                         return Ok(());
                     }
+                }
+
+                if !round_actions.is_empty() {
+                    resolved_action_history.push(round_actions);
                 }
 
                 if !should_reinvoke {
@@ -168,7 +174,7 @@ impl CallExecution {
 
     fn build_interception_request(
         &self,
-        prior_actions: &[ResolvedActionRecord],
+        resolved_action_history: &[Vec<ResolvedActionRecord>],
     ) -> Result<InterceptionRequest, OrchestratorError> {
         Ok(InterceptionRequest {
             origin: Participant {
@@ -176,7 +182,7 @@ impl CallExecution {
                 id: "orchestrator".to_owned(),
             },
             message: self.snapshot_message()?,
-            prior_actions: prior_actions.to_vec(),
+            resolved_action_history: resolved_action_history.to_vec(),
         })
     }
 
