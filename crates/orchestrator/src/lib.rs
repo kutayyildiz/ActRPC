@@ -4,6 +4,7 @@ mod orchestrator;
 mod transcript;
 
 pub mod action;
+pub mod config;
 pub mod error;
 pub mod external_method;
 pub mod interceptor;
