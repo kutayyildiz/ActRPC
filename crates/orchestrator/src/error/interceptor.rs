@@ -22,6 +22,12 @@ pub enum InterceptorError {
     #[error("duplicate interceptor registration for {name}")]
     DuplicateRegistration { name: String },
 
+    #[error("pipeline {phase} references unknown interceptor {name}")]
+    UnknownPipelineInterceptor { phase: String, name: String },
+
+    #[error("pipeline {phase} contains duplicate interceptor {name}")]
+    DuplicatePipelineEntry { phase: String, name: String },
+
     #[error("interceptor {interceptor} declared unsupported action descriptor for action {action}")]
     UnsupportedActionDescriptor {
         interceptor: String,

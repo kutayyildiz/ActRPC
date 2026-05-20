@@ -6,7 +6,6 @@ use serde::{Deserialize, Serialize};
 #[serde(deny_unknown_fields)]
 pub struct InterceptorConfig {
     pub name: String,
-    pub priority: i32,
     pub policy: InterceptorPolicy,
     pub target: TransportTarget,
 }

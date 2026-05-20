@@ -1,5 +1,8 @@
-use actrpc_core::action::{ActionDescriptor, ActionKind};
-use actrpc_transport::{JsonRpcClient, JsonRpcClientProvider, TransportError, TransportTarget};
+use actrpc_core::{
+    InterceptorInitialization,
+    action::{ActionDescriptor, ActionKind},
+};
+use actrpc_transport::{JsonRpcClient, JsonRpcClientProvider, TransportError};
 
 use crate::{
     error::{ActionExecutionError, InterceptorError, OrchestratorError},
@@ -9,7 +12,10 @@ use crate::{
         initialization::validate_interceptor_registration,
     },
 };
-use std::{collections::HashMap, sync::Arc};
+use std::{
+    collections::{HashMap, HashSet},
+    sync::Arc,
+};
 
 #[derive(Clone)]
 pub struct InterceptorCatalogEntry {
@@ -49,22 +55,14 @@ impl InterceptorCatalog {
 
     pub async fn build(
         interceptors: Vec<(InterceptorConfig, Arc<dyn Interceptor>)>,
+        outbound_pipeline: Vec<String>,
+        inbound_pipeline: Vec<String>,
         available_actions: &HashMap<ActionKind, ActionDescriptor>,
     ) -> Result<Self, OrchestratorError> {
         let mut entries = HashMap::new();
-        let mut outbound = Vec::new();
-        let mut inbound = Vec::new();
+        let mut initializations = HashMap::new();
 
-        let mut ordered = interceptors;
-
-        ordered.sort_by(|(a_config, _), (b_config, _)| {
-            a_config
-                .priority
-                .cmp(&b_config.priority)
-                .then_with(|| a_config.name.cmp(&b_config.name))
-        });
-
-        for (config, interceptor) in ordered {
+        for (config, interceptor) in interceptors {
             let initialization = interceptor.initialize().await.map_err(|source| {
                 OrchestratorError::Interceptor(InterceptorError::InitializationFailed {
                     name: config.name.clone(),
@@ -85,13 +83,7 @@ impl InterceptorCatalog {
                 ));
             }
 
-            if initialization.supports_outbound {
-                outbound.push(config.name.clone());
-            }
-
-            if initialization.supports_inbound {
-                inbound.push(config.name.clone());
-            }
+            initializations.insert(config.name.clone(), initialization);
 
             entries.insert(
                 config.name.clone(),
@@ -103,15 +95,21 @@ impl InterceptorCatalog {
             );
         }
 
+        validate_pipeline("outbound", &outbound_pipeline, &entries, &initializations)?;
+
+        validate_pipeline("inbound", &inbound_pipeline, &entries, &initializations)?;
+
         Ok(Self::new(
             entries,
-            ImmutableInterceptorPipeline::new(outbound),
-            ImmutableInterceptorPipeline::new(inbound),
+            ImmutableInterceptorPipeline::new(outbound_pipeline),
+            ImmutableInterceptorPipeline::new(inbound_pipeline),
         ))
     }
 
-    pub async fn build_from_targets<P>(
-        sources: Vec<(InterceptorConfig, TransportTarget)>,
+    pub async fn build_from_configs<P>(
+        configs: Vec<InterceptorConfig>,
+        outbound_pipeline: Vec<String>,
+        inbound_pipeline: Vec<String>,
         available_actions: &HashMap<ActionKind, ActionDescriptor>,
         client_provider: &P,
     ) -> Result<Self, OrchestratorError>
@@ -122,11 +120,11 @@ impl InterceptorCatalog {
             > + Send
             + Sync,
     {
-        let mut interceptors = Vec::with_capacity(sources.len());
+        let mut interceptors = Vec::with_capacity(configs.len());
 
-        for (config, target) in sources {
+        for config in configs {
             let client = client_provider
-                .get_client(&target)
+                .get_client(&config.target)
                 .await
                 .map_err(OrchestratorError::Transport)?;
 
@@ -135,7 +133,13 @@ impl InterceptorCatalog {
             interceptors.push((config, interceptor));
         }
 
-        Self::build(interceptors, available_actions).await
+        Self::build(
+            interceptors,
+            outbound_pipeline,
+            inbound_pipeline,
+            available_actions,
+        )
+        .await
     }
 
     pub fn get_entry(&self, name: &str) -> Result<InterceptorCatalogEntry, ActionExecutionError> {
@@ -178,4 +182,67 @@ impl InterceptorCatalog {
     pub fn inbound_pipeline_snapshot(&self) -> WorkingInterceptorPipeline {
         self.inbound_pipeline.snapshot()
     }
+}
+
+fn validate_pipeline(
+    phase: &str,
+    pipeline: &[String],
+    entries: &HashMap<String, InterceptorCatalogEntry>,
+    initializations: &HashMap<String, InterceptorInitialization>,
+) -> Result<(), OrchestratorError> {
+    let mut seen = HashSet::new();
+
+    for name in pipeline {
+        if !seen.insert(name.clone()) {
+            return Err(OrchestratorError::Interceptor(
+                InterceptorError::DuplicatePipelineEntry {
+                    phase: phase.to_owned(),
+                    name: name.clone(),
+                },
+            ));
+        }
+
+        let Some(initialization) = initializations.get(name) else {
+            return Err(OrchestratorError::Interceptor(
+                InterceptorError::UnknownPipelineInterceptor {
+                    phase: phase.to_owned(),
+                    name: name.clone(),
+                },
+            ));
+        };
+
+        if !entries.contains_key(name) {
+            return Err(OrchestratorError::Interceptor(
+                InterceptorError::UnknownPipelineInterceptor {
+                    phase: phase.to_owned(),
+                    name: name.clone(),
+                },
+            ));
+        }
+
+        match phase {
+            "outbound" if !initialization.supports_outbound => {
+                return Err(OrchestratorError::Interceptor(
+                    InterceptorError::InvalidInitialization {
+                        interceptor: name.clone(),
+                        message: "interceptor is listed in outbound pipeline but does not support outbound"
+                            .to_owned(),
+                    },
+                ));
+            }
+            "inbound" if !initialization.supports_inbound => {
+                return Err(OrchestratorError::Interceptor(
+                    InterceptorError::InvalidInitialization {
+                        interceptor: name.clone(),
+                        message:
+                            "interceptor is listed in inbound pipeline but does not support inbound"
+                                .to_owned(),
+                    },
+                ));
+            }
+            _ => {}
+        }
+    }
+
+    Ok(())
 }
