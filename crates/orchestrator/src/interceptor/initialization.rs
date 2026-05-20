@@ -5,6 +5,7 @@ use crate::{
 use actrpc_core::{
     InterceptorInitialization,
     action::{ActionDescriptor, ActionKind},
+    descriptor::Accepts,
 };
 use std::collections::HashMap;
 
@@ -23,7 +24,7 @@ pub fn validate_action_descriptors(
             ));
         };
 
-        if orchestrator_descriptor != interceptor_descriptor {
+        if !orchestrator_descriptor.accepts(interceptor_descriptor) {
             return Err(OrchestratorError::Interceptor(
                 InterceptorError::ActionDescriptorMismatch {
                     interceptor: interceptor_name.to_owned(),

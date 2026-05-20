@@ -1,6 +1,9 @@
 use actrpc_core::{
     DescribeValue,
-    descriptor::types::{OkDescriptor, ParamsDescriptor},
+    descriptor::{
+        Accepts,
+        types::{OkDescriptor, ParamsDescriptor},
+    },
 };
 use serde::{Deserialize, Serialize};
 use std::{borrow::Borrow, fmt, str::FromStr};
@@ -76,4 +79,12 @@ pub struct MethodDescriptor {
 
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub ok: Option<OkDescriptor>,
+}
+
+impl Accepts for MethodDescriptor {
+    fn accepts(&self, actual: &Self) -> bool {
+        self.name == actual.name
+            && self.params.accepts(&actual.params)
+            && self.ok.accepts(&actual.ok)
+    }
 }
