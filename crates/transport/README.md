@@ -1,59 +1,45 @@
 # actrpc-transport
 
-`actrpc-transport` provides the transport-side abstractions used to deliver ActRPC and JSON-RPC messages.
+`actrpc-transport` provides JSON-RPC client abstractions and concrete client implementations for ActRPC.
 
-It defines how orchestrators and interceptors communicate over concrete transport mechanisms.
+## What It Provides
 
-## Purpose
-
-This crate exists to separate message delivery from protocol structure and runtime behavior.
-
-It provides the transport-side contracts needed for:
-
-- interceptor invocation
-- downstream endpoint forwarding
-- transport-specific client reuse
-- lazy initialization and connection management
-
-## What It Contains
-
+- `JsonRpcClient` trait
+- `JsonRpcClientFactory` trait
+- `JsonRpcClientProvider` trait
+- default client factory and provider
 - transport target definitions
-- JSON-RPC client traits
-- client provider traits
-- concrete transport implementations
-- transport error types
+- concrete JSON-RPC clients
+- stream framing helpers
+- transport-specific error handling
 
-## Design
+## Supported Targets
 
-- Built on `actrpc-core`
-- Focused on delivery, not protocol
-- Supports lazy initialization and caching per target
-- Works with heterogeneous transport definitions
+`TransportTarget` supports:
 
-## Transport Model
+- `StdioTarget`
+- `TcpTarget`
+- `LocalIpcTarget`
+- `HttpTarget`
+- `WebSocketTarget`
 
-A transport implementation is responsible for turning a transport target into a usable JSON-RPC client.
+Concrete client types include:
 
-A provider may:
+- `StdioJsonRpcClient`
+- `TcpJsonRpcClient`
+- `LocalIpcJsonRpcClient`
+- `HttpJsonRpcClient`
+- `WebSocketJsonRpcClient`
 
-- lazily initialize a client
-- cache clients per target
-- reconnect failed clients
-- create fresh clients if needed
+## Framing
 
-The orchestrator should not care which strategy is used.
+For stream-oriented transports, the crate supports:
 
-## Scope
+- content-length framing
+- newline-delimited framing
 
-This crate does not include:
+The public `StreamFraming` type selects the framing mode, while the framing module handles serialization and deserialization of `JsonRpcMessage` values.
 
-- protocol definitions
-- orchestrator pipeline logic
-- interceptor logic
-- built-in actions
+## Client Reuse
 
-## Summary
-
-`actrpc-transport` defines how ActRPC participants are contacted.
-
-It handles delivery and client resolution while leaving protocol and orchestration logic to other crates.
+`DefaultJsonRpcClientProvider` can lazily create and cache clients per target through `DefaultJsonRpcClientFactory`. It also exposes cache-clearing and per-target removal helpers.

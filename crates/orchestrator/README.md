@@ -1,91 +1,51 @@
 # actrpc-orchestrator
 
-`actrpc-orchestrator` is the runtime engine for ActRPC.
+`actrpc-orchestrator` is the ActRPC runtime engine.
 
-It runs the interception pipeline, invokes interceptors, executes requested actions, forwards JSON-RPC messages to their destination, and processes the response on the way back.
+It coordinates interceptor execution, action handling, method calls, transport-backed destinations, working pipeline state, and transcript state.
 
-## Purpose
+## What It Provides
 
-The orchestrator is the control point of the ActRPC pipeline.
+- the `Orchestrator` trait
+- `DefaultOrchestrator`
+- call execution and nested call execution factories
+- outbound and inbound phase runtimes
+- interceptor catalog and working pipeline models
+- action registry and typed action-handler traits
+- built-in action registry construction
+- method catalog support
+- transcript capture
+- orchestrator-specific errors
 
-It is responsible for:
+## Runtime Flow
 
-- outbound interception
-- action execution
-- downstream forwarding
-- inbound interception
-- final response production
+1. Build or provide a `MethodCatalog` for callable downstream methods.
+2. Build an `InterceptorCatalog` from configured interceptor targets and policies.
+3. Build an `ActionRegistry`, usually with built-in action handlers.
+4. Create `OrchestratorResources` and a `CallExecutionFactory`.
+5. Use `DefaultOrchestrator` to call a method with optional JSON-RPC params.
+6. The runtime runs outbound interceptors, applies actions, forwards the call, runs inbound interceptors, applies response-side actions, and returns the resulting JSON-RPC message.
 
-## What It Does
+## Built-in Actions
 
-The orchestrator:
+The `action::actions` module contains built-in action specs and handlers for:
 
-1. receives a JSON-RPC message
-2. creates an `InterceptionRequest`
-3. invokes outbound interceptors in order
-4. collects requested actions
-5. executes those actions
-6. forwards the resulting message to the destination endpoint
-7. receives the response
-8. invokes inbound interceptors in order
-9. executes any requested inbound actions
-10. returns the final response
+- `call_method`
+- `exclude_interceptors`
+- `get_interceptor_catalog`
+- `get_working_interceptor_catalog`
+- `get_working_pipeline`
+- `get_transcript`
+- `modify_params`
+- `modify_result`
+- `modify_error`
+- `reject_call`
+- `request_review`
 
-## Action Model
+The `action::build_builtin_action_registry` helper builds a registry from the runtime resources used by those handlers.
 
-This crate defines the execution model for actions.
+## Interceptors
 
-Actions are pluggable.
-To be usable by the orchestrator, an action implementation must implement the orchestrator’s action execution trait.
+The orchestrator invokes interceptors through the `interceptor::Interceptor` trait. It also includes `JsonRpcBackedInterceptor`, which lets an interceptor be backed by a JSON-RPC client from `actrpc-transport`.
 
-The orchestrator does not define a built-in action catalog.
-
-## Interceptor Model
-
-Interceptors are resolved through the configured interceptor registry.
-
-Each interceptor entry is responsible for defining how that interceptor is contacted. This may include transport-specific details.
-
-The orchestrator does not own embedded interceptor implementations by default.
-
-## Design
-
-- Built on `actrpc-core`
-- Defines the canonical orchestration runtime
-- Defines the action execution contract
-- Uses pluggable action executors
-- Uses configured interceptor registry entries
-- Keeps transport concerns outside the protocol model
-
-## Usage (Conceptual)
-
-```rust
-let orchestrator = Orchestrator::builder()
-    .with_interceptor_registry(interceptors)
-    .with_action_registry(actions)
-    .build();
-
-let response = orchestrator.handle(message, destination);
-```
-
-## Scope
-
-This crate provides:
-
-- the orchestration engine
-- the action execution trait
-- the action registry model
-- interceptor pipeline execution
-
-It does not include:
-
-- protocol definitions
-- built-in actions
-- built-in interceptors
-- concrete transport implementations
-
-## Summary
-
-`actrpc-orchestrator` defines how the ActRPC pipeline runs.
-
-It is the crate that coordinates interceptors, executes actions, and determines the final outcome.
+Interceptor catalog entries include names, transport targets, phase policy, and advertised capabilities.

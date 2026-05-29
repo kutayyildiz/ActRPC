@@ -1,49 +1,26 @@
 # actrpc-core
 
-`actrpc-core` defines the shared protocol model for ActRPC.
+`actrpc-core` is the protocol foundation of ActRPC.
 
-It contains the canonical types used by orchestrators, interceptors, transports, and action implementations.
+It defines the shared data model used by the orchestrator, transports, interceptors, and action implementations. It does not execute calls, open connections, or run interceptor pipelines.
 
-## Purpose
-
-This crate defines:
+## What It Provides
 
 - JSON-RPC 2.0 message types
 - interception request and response types
-- action specifications and action records
-- participant types
-- shared errors
-- protocol conversions
+- outbound/inbound interception phases
+- action specifications, requested actions, and resolved action records
+- action descriptors and value descriptors
+- participant identity types
+- shared protocol, codec, and action-codec errors
+- descriptor derive macro re-exports from `actrpc-core-macros`
 
-## What It Contains
+## Descriptor Derives
 
-- `JsonRpcMessage` and related JSON-RPC types
-- `InterceptionRequest`
-- `InterceptionResponse`
-- `InterceptionPhase`
-- `ActionSpec`
-- `RequestedActionRecord`
-- `ResolvedActionRecord`
-- protocol error types
+This crate re-exports:
 
-## Design
+```rust
+use actrpc_core::{DescribeOk, DescribeParams, DescribeValue};
+```
 
-- Protocol-first
-- Runtime-agnostic
-- Shared by all other ActRPC crates
-- Focused on structure, not execution
-
-## Scope
-
-This crate does not include:
-
-- orchestrator runtime logic
-- interceptor runtime logic
-- transport implementations
-- built-in actions
-
-## Summary
-
-`actrpc-core` is the protocol foundation of ActRPC.
-
-It defines the types and rules that all other crates build on.
+Use these derives to describe action params, action outputs, and nested value structures in a form that can be advertised to interceptors and validated by the orchestrator.
