@@ -6,10 +6,7 @@ mod provider;
 pub mod client;
 pub mod target;
 
-pub use client::{
-    HttpJsonRpcClient, JsonRpcClient, JsonRpcClientFuture, LocalIpcJsonRpcClient,
-    StdioJsonRpcClient, TcpJsonRpcClient, WebSocketJsonRpcClient,
-};
+pub use client::{JsonRpcClient, JsonRpcClientFuture};
 pub use error::TransportError;
 pub use factory::{
     DefaultJsonRpcClientFactory, DefaultJsonRpcClientProvider, JsonRpcClientFactory,

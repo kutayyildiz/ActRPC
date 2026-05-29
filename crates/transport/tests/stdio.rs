@@ -1,5 +1,5 @@
 use actrpc_transport::{
-    StdioJsonRpcClient,
+    client::StdioJsonRpcClient,
     target::{StdioTarget, TransportTarget},
 };
 use serde_json::json;

@@ -3,7 +3,8 @@ use actrpc_core::json_rpc::{
     JsonRpcSingleMessage, JsonRpcSuccessResponse, JsonRpcVersion,
 };
 use actrpc_transport::{
-    TcpJsonRpcClient, TransportError,
+    TransportError,
+    client::TcpJsonRpcClient,
     target::{TcpTarget, TransportTarget},
 };
 use serde_json::{Value, json};

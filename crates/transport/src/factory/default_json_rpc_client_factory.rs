@@ -1,6 +1,9 @@
 use crate::{
-    HttpJsonRpcClient, JsonRpcClient, JsonRpcClientProvider, LocalIpcJsonRpcClient,
-    StdioJsonRpcClient, TcpJsonRpcClient, TransportError, TransportTarget, WebSocketJsonRpcClient,
+    JsonRpcClient, JsonRpcClientProvider, TransportError, TransportTarget,
+    client::{
+        HttpJsonRpcClient, LocalIpcJsonRpcClient, StdioJsonRpcClient, TcpJsonRpcClient,
+        WebSocketJsonRpcClient,
+    },
     factory::{JsonRpcClientFactory, JsonRpcClientFactoryFuture},
     provider::JsonRpcClientProviderFuture,
 };
