@@ -21,6 +21,7 @@ pub const REVIEW_DECISION_DENIED: &str = "denied";
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize, DescribeParams)]
 #[serde(deny_unknown_fields)]
 pub struct RequestReviewParams {
+    pub rule_name: String,
     pub title: String,
     pub reason: String,
     pub severity: String,

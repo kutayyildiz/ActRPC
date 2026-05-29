@@ -1,7 +1,7 @@
 use actrpc_orchestrator::{
     config::{ConfigFormat, OrchestratorConfig},
     error::ConfigError,
-    external_method::MethodName,
+    method::{MethodName, ProviderName},
 };
 use std::{
     fs,
@@ -17,16 +17,19 @@ fn config_from_yaml_path_loads_orchestrator_config() {
     fs::write(
         &path,
         r#"
-external_methods:
-  - descriptor:
-      name: sum
-      description: Adds numbers
+methods:
+  - kind: native
+    name: math
+    description: Math provider
     target:
       http:
         url: "http://example.invalid/rpc"
         headers: []
         timeout_ms: 1000
-    remote_method: sum_remote
+    methods:
+      - name: sum
+        remote_method: sum_remote
+        description: Adds numbers
 
 interceptors:
   - name: firewall
@@ -51,12 +54,23 @@ pipelines:
 
     let config = OrchestratorConfig::from_path(&path).unwrap();
 
-    assert_eq!(config.external_methods.len(), 1);
-    assert_eq!(
-        config.external_methods[0].descriptor.name,
-        MethodName::from("sum")
-    );
-    assert_eq!(config.external_methods[0].remote_method, "sum_remote");
+    assert_eq!(config.methods.len(), 1);
+    assert_eq!(config.methods[0].name(), &ProviderName::from("math"));
+
+    match &config.methods[0] {
+        actrpc_orchestrator::method::MethodSourceConfig::Native(provider) => {
+            assert_eq!(provider.name, ProviderName::from("math"));
+            assert_eq!(provider.description.as_deref(), Some("Math provider"));
+            assert_eq!(provider.methods.len(), 1);
+            assert_eq!(provider.methods[0].name, MethodName::from("sum"));
+            assert_eq!(provider.methods[0].remote_method, "sum_remote");
+            assert_eq!(
+                provider.methods[0].description.as_deref(),
+                Some("Adds numbers")
+            );
+        }
+        other => panic!("unexpected method source config: {other:?}"),
+    }
 
     assert_eq!(config.interceptors.len(), 1);
     assert_eq!(config.interceptors[0].name, "firewall");
@@ -73,17 +87,20 @@ fn config_from_toml_path_loads_orchestrator_config() {
     fs::write(
         &path,
         r#"
-[[external_methods]]
-remote_method = "sum_remote"
+[[methods]]
+kind = "native"
+name = "math"
+description = "Math provider"
 
-[external_methods.descriptor]
-name = "sum"
-description = "Adds numbers"
-
-[external_methods.target.http]
+[methods.target.http]
 url = "http://example.invalid/rpc"
 headers = []
 timeout_ms = 1000
+
+[[methods.methods]]
+name = "sum"
+remote_method = "sum_remote"
+description = "Adds numbers"
 
 [[interceptors]]
 name = "firewall"
@@ -106,12 +123,23 @@ inbound = []
 
     let config = OrchestratorConfig::from_path(&path).unwrap();
 
-    assert_eq!(config.external_methods.len(), 1);
-    assert_eq!(
-        config.external_methods[0].descriptor.name,
-        MethodName::from("sum")
-    );
-    assert_eq!(config.external_methods[0].remote_method, "sum_remote");
+    assert_eq!(config.methods.len(), 1);
+    assert_eq!(config.methods[0].name(), &ProviderName::from("math"));
+
+    match &config.methods[0] {
+        actrpc_orchestrator::method::MethodSourceConfig::Native(provider) => {
+            assert_eq!(provider.name, ProviderName::from("math"));
+            assert_eq!(provider.description.as_deref(), Some("Math provider"));
+            assert_eq!(provider.methods.len(), 1);
+            assert_eq!(provider.methods[0].name, MethodName::from("sum"));
+            assert_eq!(provider.methods[0].remote_method, "sum_remote");
+            assert_eq!(
+                provider.methods[0].description.as_deref(),
+                Some("Adds numbers")
+            );
+        }
+        other => panic!("unexpected method source config: {other:?}"),
+    }
 
     assert_eq!(config.interceptors.len(), 1);
     assert_eq!(config.interceptors[0].name, "firewall");
@@ -130,15 +158,17 @@ fn config_from_paths_appends_files_in_order() {
     fs::write(
         &first,
         r#"
-external_methods:
-  - descriptor:
-      name: sum
+methods:
+  - kind: native
+    name: math
     target:
       http:
         url: "http://example.invalid/sum"
         headers: []
         timeout_ms: 1000
-    remote_method: sum_remote
+    methods:
+      - name: sum
+        remote_method: sum_remote
 
 interceptors:
   - name: firewall
@@ -163,15 +193,17 @@ pipelines:
     fs::write(
         &second,
         r#"
-external_methods:
-  - descriptor:
-      name: get
+methods:
+  - kind: native
+    name: filesystem
     target:
       http:
         url: "http://example.invalid/get"
         headers: []
         timeout_ms: 1000
-    remote_method: get_remote
+    methods:
+      - name: get
+        remote_method: get_remote
 
 interceptors:
   - name: audit_logger
@@ -195,15 +227,25 @@ pipelines:
 
     let config = OrchestratorConfig::from_paths([&first, &second]).unwrap();
 
-    assert_eq!(config.external_methods.len(), 2);
-    assert_eq!(
-        config.external_methods[0].descriptor.name,
-        MethodName::from("sum")
-    );
-    assert_eq!(
-        config.external_methods[1].descriptor.name,
-        MethodName::from("get")
-    );
+    assert_eq!(config.methods.len(), 2);
+    assert_eq!(config.methods[0].name(), &ProviderName::from("math"));
+    assert_eq!(config.methods[1].name(), &ProviderName::from("filesystem"));
+
+    match &config.methods[0] {
+        actrpc_orchestrator::method::MethodSourceConfig::Native(provider) => {
+            assert_eq!(provider.methods[0].name, MethodName::from("sum"));
+            assert_eq!(provider.methods[0].remote_method, "sum_remote");
+        }
+        other => panic!("unexpected method source config: {other:?}"),
+    }
+
+    match &config.methods[1] {
+        actrpc_orchestrator::method::MethodSourceConfig::Native(provider) => {
+            assert_eq!(provider.methods[0].name, MethodName::from("get"));
+            assert_eq!(provider.methods[0].remote_method, "get_remote");
+        }
+        other => panic!("unexpected method source config: {other:?}"),
+    }
 
     assert_eq!(config.interceptors.len(), 2);
     assert_eq!(config.interceptors[0].name, "firewall");
@@ -214,8 +256,8 @@ pipelines:
 }
 
 #[test]
-fn config_from_paths_rejects_duplicate_external_method_names() {
-    let dir = temp_test_dir("config_from_paths_rejects_duplicate_external_method_names");
+fn config_from_paths_rejects_duplicate_method_provider_names() {
+    let dir = temp_test_dir("config_from_paths_rejects_duplicate_method_provider_names");
 
     let first = dir.join("first.yaml");
     let second = dir.join("second.yaml");
@@ -223,15 +265,17 @@ fn config_from_paths_rejects_duplicate_external_method_names() {
     fs::write(
         &first,
         r#"
-external_methods:
-  - descriptor:
-      name: sum
+methods:
+  - kind: native
+    name: math
     target:
       http:
         url: "http://example.invalid/one"
         headers: []
         timeout_ms: 1000
-    remote_method: sum_one
+    methods:
+      - name: sum
+        remote_method: sum_one
 "#,
     )
     .unwrap();
@@ -239,15 +283,17 @@ external_methods:
     fs::write(
         &second,
         r#"
-external_methods:
-  - descriptor:
-      name: sum
+methods:
+  - kind: native
+    name: math
     target:
       http:
         url: "http://example.invalid/two"
         headers: []
         timeout_ms: 1000
-    remote_method: sum_two
+    methods:
+      - name: sum
+        remote_method: sum_two
 "#,
     )
     .unwrap();
@@ -255,8 +301,8 @@ external_methods:
     let err = OrchestratorConfig::from_paths([&first, &second]).unwrap_err();
 
     match err {
-        ConfigError::DuplicateExternalMethod { name } => {
-            assert_eq!(name, MethodName::from("sum"));
+        ConfigError::DuplicateMethodProvider { name } => {
+            assert_eq!(name, ProviderName::from("math"));
         }
         other => panic!("unexpected error: {other:?}"),
     }

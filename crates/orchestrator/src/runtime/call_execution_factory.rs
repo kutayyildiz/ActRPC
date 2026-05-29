@@ -1,103 +1,79 @@
 use crate::{
     error::OrchestratorError,
-    external_method::MethodName,
+    method::{MethodName, ProviderName},
     runtime::{CallExecution, CallRuntime, OrchestratorResources},
 };
 use actrpc_core::json_rpc::{JsonRpcMessage, JsonRpcParams};
 use std::sync::Arc;
 
-pub const DEFAULT_MAX_CALL_DEPTH: usize = 64;
-
 pub struct CallExecutionFactory {
     resources: Arc<OrchestratorResources>,
-    max_depth: usize,
 }
 
 impl CallExecutionFactory {
     pub fn new(resources: Arc<OrchestratorResources>) -> Self {
-        Self {
-            resources,
-            max_depth: DEFAULT_MAX_CALL_DEPTH,
-        }
+        Self { resources }
     }
 
-    pub fn with_max_depth(resources: Arc<OrchestratorResources>, max_depth: usize) -> Self {
-        Self {
-            resources,
-            max_depth,
-        }
-    }
-
-    pub fn resources(&self) -> &Arc<OrchestratorResources> {
+    pub fn resources(&self) -> &OrchestratorResources {
         &self.resources
     }
 
     pub fn create_root(
         self: &Arc<Self>,
+        provider: ProviderName,
         method: MethodName,
         params: Option<JsonRpcParams>,
     ) -> Result<CallExecution, OrchestratorError> {
         let message = self
             .resources
-            .external_method_catalog
-            .request_message(&method, params)?;
+            .method_catalog
+            .request_message(&provider, &method, params)?;
 
-        Ok(CallExecution::new(
-            self.clone(),
-            Arc::new(CallRuntime::root(message)),
-            method,
-        ))
+        let call = Arc::new(CallRuntime::root(message));
+
+        Ok(CallExecution::new(self.clone(), call, provider, method))
     }
 
     pub fn create_piped(
         self: &Arc<Self>,
+        provider: ProviderName,
         method: MethodName,
         params: Option<JsonRpcParams>,
         parent: &CallRuntime,
     ) -> Result<CallExecution, OrchestratorError> {
-        let depth = parent.depth() + 1;
-
-        if depth > self.max_depth {
-            return Err(OrchestratorError::Internal {
-                message: format!(
-                    "maximum piped call depth exceeded: depth {depth}, limit {}",
-                    self.max_depth
-                ),
-            });
-        }
-
         let message = self
             .resources
-            .external_method_catalog
-            .request_message(&method, params)?;
+            .method_catalog
+            .request_message(&provider, &method, params)?;
 
-        Ok(CallExecution::new(
-            self.clone(),
-            Arc::new(CallRuntime::nested(
-                message,
-                parent.transcript.clone(),
-                parent.depth(),
-            )),
-            method,
-        ))
+        let call = Arc::new(CallRuntime::nested(
+            message,
+            parent.transcript.clone(),
+            parent.depth(),
+        ));
+
+        Ok(CallExecution::new(self.clone(), call, provider, method))
     }
 
     pub async fn run_root(
         self: &Arc<Self>,
+        provider: ProviderName,
         method: MethodName,
         params: Option<JsonRpcParams>,
     ) -> Result<JsonRpcMessage, OrchestratorError> {
-        let execution = self.create_root(method, params)?;
+        let execution = self.create_root(provider, method, params)?;
         execution.run().await
     }
 
     pub async fn run_piped(
         self: &Arc<Self>,
+        provider: ProviderName,
         method: MethodName,
         params: Option<JsonRpcParams>,
         parent: &CallRuntime,
     ) -> Result<JsonRpcMessage, OrchestratorError> {
-        let execution = self.create_piped(method, params, parent)?;
+        let execution = self.create_piped(provider, method, params, parent)?;
         execution.run().await
     }
 }

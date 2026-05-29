@@ -1,4 +1,4 @@
-use crate::external_method::MethodName;
+use crate::method::ProviderName;
 use std::path::PathBuf;
 
 #[non_exhaustive]
@@ -31,8 +31,8 @@ pub enum ConfigError {
         source: serde_yaml::Error,
     },
 
-    #[error("duplicate external method config: {name}")]
-    DuplicateExternalMethod { name: MethodName },
+    #[error("duplicate method provider config: {name}")]
+    DuplicateMethodProvider { name: ProviderName },
 
     #[error("duplicate interceptor config: {name}")]
     DuplicateInterceptor { name: String },

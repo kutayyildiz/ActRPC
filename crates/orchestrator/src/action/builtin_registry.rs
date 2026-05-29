@@ -2,7 +2,7 @@ use crate::{
     action::{
         ActionRegistry,
         actions::{
-            call_external_method::{CallExternalMethod, CallExternalMethodHandler},
+            call_method::{CallMethod, CallMethodHandler},
             exclude_interceptors::{ExcludeInterceptors, ExcludeInterceptorsHandler},
             get_interceptor_catalog::{GetInterceptorCatalog, GetInterceptorCatalogHandler},
             get_transcript::{GetTranscript, GetTranscriptHandler},
@@ -14,6 +14,7 @@ use crate::{
             modify_params::{ModifyParams, ModifyParamsHandler},
             modify_result::{ModifyResult, ModifyResultHandler},
             reject_call::{RejectCall, RejectCallHandler},
+            request_review::{RequestReview, RequestReviewHandler},
         },
     },
     error::OrchestratorError,
@@ -34,7 +35,8 @@ pub fn available_actions() -> HashMap<ActionKind, ActionDescriptor> {
     insert_action::<GetInterceptorCatalog>(&mut actions);
     insert_action::<GetWorkingInterceptorCatalog>(&mut actions);
     insert_action::<GetWorkingPipeline>(&mut actions);
-    insert_action::<CallExternalMethod>(&mut actions);
+    insert_action::<CallMethod>(&mut actions);
+    insert_action::<RequestReview>(&mut actions);
 
     actions
 }
@@ -82,9 +84,10 @@ pub fn build_builtin_action_registry(
         phase.pipeline.clone(),
     ))?;
 
-    registry.register::<CallExternalMethod, _>(CallExternalMethodHandler::new(
-        factory,
-        phase.call.clone(),
+    registry.register::<CallMethod, _>(CallMethodHandler::new(factory, phase.call.clone()))?;
+
+    registry.register::<RequestReview, _>(RequestReviewHandler::new(
+        resources.review_provider.clone(),
     ))?;
 
     Ok(registry)

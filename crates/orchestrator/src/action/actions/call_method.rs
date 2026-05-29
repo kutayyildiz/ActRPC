@@ -1,7 +1,7 @@
 use crate::{
     action::{ActionHandlerFuture, TypedActionHandler},
     error::{ActionExecutionError, OrchestratorError},
-    external_method::MethodName,
+    method::{MethodName, ProviderName},
     runtime::{CallExecutionFactory, CallRuntime},
 };
 use actrpc_core::{
@@ -15,28 +15,29 @@ use std::sync::Arc;
 
 #[derive(Debug, Clone, Serialize, Deserialize, DescribeParams)]
 #[serde(deny_unknown_fields)]
-pub struct CallExternalMethodParams {
+pub struct CallMethodParams {
+    pub provider: ProviderName,
     pub method: MethodName,
 
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub params: Option<JsonRpcParams>,
 }
 
-pub struct CallExternalMethod;
+pub struct CallMethod;
 
-impl ActionSpec for CallExternalMethod {
-    type Params = CallExternalMethodParams;
+impl ActionSpec for CallMethod {
+    type Params = CallMethodParams;
     type Result = serde_json::Value;
 
-    const KIND: &'static str = "call_external_method";
+    const KIND: &'static str = "call_method";
 }
 
-pub struct CallExternalMethodHandler {
+pub struct CallMethodHandler {
     factory: Arc<CallExecutionFactory>,
     parent_call: Arc<CallRuntime>,
 }
 
-impl CallExternalMethodHandler {
+impl CallMethodHandler {
     pub fn new(factory: Arc<CallExecutionFactory>, parent_call: Arc<CallRuntime>) -> Self {
         Self {
             factory,
@@ -45,12 +46,12 @@ impl CallExternalMethodHandler {
     }
 }
 
-impl TypedActionHandler<CallExternalMethod> for CallExternalMethodHandler {
+impl TypedActionHandler<CallMethod> for CallMethodHandler {
     fn handle_typed<'a>(
         &'a self,
         _request: &'a InterceptionRequest,
-        action: RequestedAction<CallExternalMethod>,
-    ) -> ActionHandlerFuture<'a, Result<ResolvedAction<CallExternalMethod>, ActionExecutionError>>
+        action: RequestedAction<CallMethod>,
+    ) -> ActionHandlerFuture<'a, Result<ResolvedAction<CallMethod>, ActionExecutionError>>
     where
         Self: 'a,
     {
@@ -58,6 +59,7 @@ impl TypedActionHandler<CallExternalMethod> for CallExternalMethodHandler {
             let response = self
                 .factory
                 .run_piped(
+                    action.params.provider.clone(),
                     action.params.method.clone(),
                     action.params.params.clone(),
                     self.parent_call.as_ref(),
@@ -85,17 +87,17 @@ fn decode_response_value(
 
         JsonRpcMessage::Single(JsonRpcSingleMessage::Response(JsonRpcResponse::Error(error))) => {
             Err(ActionExecutionError::DependencyFailed {
-                dependency: "call_external_method".to_owned(),
+                dependency: "call_method".to_owned(),
                 message: format!(
-                    "external method returned JSON-RPC error {}: {}",
+                    "method returned JSON-RPC error {}: {}",
                     error.error.code, error.error.message
                 ),
             })
         }
 
         _ => Err(ActionExecutionError::DependencyFailed {
-            dependency: "call_external_method".to_owned(),
-            message: "external method did not return a single JSON-RPC response".to_owned(),
+            dependency: "call_method".to_owned(),
+            message: "method did not return a single JSON-RPC response".to_owned(),
         }),
     }
 }

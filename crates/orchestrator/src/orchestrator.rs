@@ -1,4 +1,4 @@
-use crate::external_method::MethodName;
+use crate::method::{MethodName, ProviderName};
 use actrpc_core::json_rpc::{JsonRpcMessage, JsonRpcParams};
 use std::{future::Future, pin::Pin};
 
@@ -9,6 +9,7 @@ pub trait Orchestrator {
 
     fn call<'a>(
         &'a self,
+        provider: ProviderName,
         method: MethodName,
         params: Option<JsonRpcParams>,
     ) -> OrchestratorFuture<'a, Result<JsonRpcMessage, Self::Error>>

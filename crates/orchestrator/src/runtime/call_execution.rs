@@ -1,8 +1,8 @@
 use crate::{
     action::{ActionRegistry, build_builtin_action_registry},
-    error::{ActionError, ExternalMethodError, InterceptorError, OrchestratorError},
-    external_method::MethodName,
+    error::{ActionError, InterceptorError, MethodCallError, OrchestratorError},
     interceptor::InterceptorCatalogEntry,
+    method::{MethodName, ProviderName},
     runtime::{CallExecutionFactory, CallRuntime, PhaseRuntime},
 };
 use actrpc_core::{
@@ -18,6 +18,7 @@ use std::sync::Arc;
 pub struct CallExecution {
     factory: Arc<CallExecutionFactory>,
     call: Arc<CallRuntime>,
+    provider: ProviderName,
     method: MethodName,
 }
 
@@ -25,11 +26,13 @@ impl CallExecution {
     pub fn new(
         factory: Arc<CallExecutionFactory>,
         call: Arc<CallRuntime>,
+        provider: ProviderName,
         method: MethodName,
     ) -> Self {
         Self {
             factory,
             call,
+            provider,
             method,
         }
     }
@@ -56,10 +59,10 @@ impl CallExecution {
         let outbound_message = self.snapshot_message()?;
 
         let downstream_response = resources
-            .external_method_catalog
-            .send_message(&self.method, outbound_message)
+            .method_catalog
+            .send_message(&self.provider, &self.method, outbound_message)
             .await
-            .map_err(map_external_method_error)?;
+            .map_err(map_method_call_error)?;
 
         if !self
             .call
@@ -259,6 +262,6 @@ impl CallExecution {
     }
 }
 
-fn map_external_method_error(error: ExternalMethodError) -> OrchestratorError {
-    OrchestratorError::ExternalMethod(error)
+fn map_method_call_error(error: MethodCallError) -> OrchestratorError {
+    OrchestratorError::MethodCall(error)
 }

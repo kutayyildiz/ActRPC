@@ -1,4 +1,4 @@
-pub mod call_external_method;
+pub mod call_method;
 pub mod exclude_interceptors;
 pub mod get_interceptor_catalog;
 pub mod get_transcript;

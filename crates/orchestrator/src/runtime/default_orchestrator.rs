@@ -1,6 +1,6 @@
 use crate::{
     error::OrchestratorError,
-    external_method::MethodName,
+    method::{MethodName, ProviderName},
     orchestrator::{Orchestrator, OrchestratorFuture},
     runtime::CallExecutionFactory,
 };
@@ -18,10 +18,11 @@ impl DefaultOrchestrator {
 
     pub async fn call(
         &self,
+        provider: ProviderName,
         method: MethodName,
         params: Option<JsonRpcParams>,
     ) -> Result<JsonRpcMessage, OrchestratorError> {
-        self.factory.run_root(method, params).await
+        self.factory.run_root(provider, method, params).await
     }
 }
 
@@ -30,12 +31,13 @@ impl Orchestrator for DefaultOrchestrator {
 
     fn call<'a>(
         &'a self,
+        provider: ProviderName,
         method: MethodName,
         params: Option<JsonRpcParams>,
     ) -> OrchestratorFuture<'a, Result<JsonRpcMessage, Self::Error>>
     where
         Self: 'a,
     {
-        Box::pin(async move { self.call(method, params).await })
+        Box::pin(async move { self.call(provider, method, params).await })
     }
 }

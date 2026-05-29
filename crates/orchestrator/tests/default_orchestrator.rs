@@ -10,10 +10,13 @@ use actrpc_core::{
 use actrpc_orchestrator::{
     action::actions::{modify_params::ModifyParams, modify_result::ModifyResult},
     error::{ActionError, InterceptorRuntimeError, OrchestratorError},
-    external_method::{ExternalMethodCatalog, ExternalMethodConfig, MethodDescriptor, MethodName},
     interceptor::{
         ImmutableInterceptorPipeline, Interceptor, InterceptorCatalog, InterceptorCatalogEntry,
         InterceptorFuture, InterceptorPolicy,
+    },
+    method::{
+        MethodCatalog, MethodName, MethodSourceConfig, NativeMethodConfig,
+        NativeMethodSourceConfig, ProviderName,
     },
     runtime::{CallExecutionFactory, DefaultOrchestrator, OrchestratorResources},
 };
@@ -26,6 +29,8 @@ use std::{
     collections::{HashMap, HashSet, VecDeque},
     sync::{Arc, Mutex},
 };
+
+const TEST_PROVIDER: &str = "test";
 
 #[tokio::test]
 async fn default_orchestrator_forwards_without_interceptors() {
@@ -43,6 +48,7 @@ async fn default_orchestrator_forwards_without_interceptors() {
 
     let result = orchestrator
         .call(
+            ProviderName::from(TEST_PROVIDER),
             MethodName::from("sum"),
             Some(JsonRpcParams::Array(vec![json!(1), json!(2)])),
         )
@@ -88,6 +94,7 @@ async fn outbound_action_mutates_message_before_downstream_send() {
 
     let result = orchestrator
         .call(
+            ProviderName::from(TEST_PROVIDER),
             MethodName::from("sum"),
             Some(JsonRpcParams::Array(vec![json!(1), json!(2)])),
         )
@@ -139,7 +146,11 @@ async fn inbound_action_mutates_final_response() {
     let orchestrator = test_orchestrator(catalog, client).await;
 
     let result = orchestrator
-        .call(MethodName::from("get"), None)
+        .call(
+            ProviderName::from(TEST_PROVIDER),
+            MethodName::from("get"),
+            None,
+        )
         .await
         .unwrap();
 
@@ -181,7 +192,11 @@ async fn default_orchestrator_rejects_action_forbidden_by_policy() {
     let orchestrator = test_orchestrator(catalog, client.clone()).await;
 
     let err = orchestrator
-        .call(MethodName::from("sum"), None)
+        .call(
+            ProviderName::from(TEST_PROVIDER),
+            MethodName::from("sum"),
+            None,
+        )
         .await
         .unwrap_err();
 
@@ -232,7 +247,11 @@ async fn default_orchestrator_errors_when_handler_is_missing() {
     let orchestrator = test_orchestrator(catalog, client.clone()).await;
 
     let err = orchestrator
-        .call(MethodName::from("sum"), None)
+        .call(
+            ProviderName::from(TEST_PROVIDER),
+            MethodName::from("sum"),
+            None,
+        )
         .await
         .unwrap_err();
 
@@ -290,6 +309,7 @@ async fn reinvoke_reuses_prior_actions_only_for_same_interceptor() {
 
     let result = orchestrator
         .call(
+            ProviderName::from(TEST_PROVIDER),
             MethodName::from("sum"),
             Some(JsonRpcParams::Array(vec![json!(1), json!(2)])),
         )
@@ -334,8 +354,8 @@ async fn test_orchestrator(
         client: client as Arc<dyn JsonRpcClient<Error = TransportError>>,
     };
 
-    let external_methods = ExternalMethodCatalog::from_configs(
-        vec![external_method_config("sum"), external_method_config("get")],
+    let method_catalog = MethodCatalog::from_configs(
+        vec![MethodSourceConfig::Native(native_method_source_config())],
         &provider,
     )
     .await
@@ -343,7 +363,7 @@ async fn test_orchestrator(
 
     let resources = Arc::new(OrchestratorResources::new(
         Arc::new(catalog),
-        Arc::new(external_methods),
+        Arc::new(method_catalog),
     ));
 
     let factory = Arc::new(CallExecutionFactory::new(resources));
@@ -351,16 +371,22 @@ async fn test_orchestrator(
     DefaultOrchestrator::new(factory)
 }
 
-fn external_method_config(name: &str) -> ExternalMethodConfig {
-    ExternalMethodConfig {
-        descriptor: MethodDescriptor {
-            name: MethodName::from(name),
-            description: None,
-            params: None,
-            ok: None,
-        },
+fn native_method_source_config() -> NativeMethodSourceConfig {
+    NativeMethodSourceConfig {
+        name: ProviderName::from(TEST_PROVIDER),
+        description: None,
         target: dummy_target(),
+        info: serde_json::Value::Null,
+        methods: vec![native_method_config("sum"), native_method_config("get")],
+    }
+}
+
+fn native_method_config(name: &str) -> NativeMethodConfig {
+    NativeMethodConfig {
+        name: MethodName::from(name),
         remote_method: name.to_owned(),
+        description: None,
+        info: serde_json::Value::Null,
     }
 }
 

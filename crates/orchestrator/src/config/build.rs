@@ -1,7 +1,7 @@
 use crate::{
     action::available_actions, config::OrchestratorConfig, error::OrchestratorError,
-    external_method::ExternalMethodCatalog, interceptor::InterceptorCatalog,
-    review::ReviewProvider, runtime::OrchestratorResources,
+    interceptor::InterceptorCatalog, method::MethodCatalog, review::ReviewProvider,
+    runtime::OrchestratorResources,
 };
 use actrpc_transport::{JsonRpcClient, JsonRpcClientProvider, TransportError};
 use std::sync::Arc;
@@ -19,8 +19,7 @@ impl OrchestratorConfig {
             > + Send
             + Sync,
     {
-        let external_methods =
-            ExternalMethodCatalog::from_configs(self.external_methods, provider).await?;
+        let method_catalog = MethodCatalog::from_configs(self.methods, provider).await?;
 
         let interceptor_catalog = InterceptorCatalog::build_from_configs(
             self.interceptors,
@@ -33,7 +32,7 @@ impl OrchestratorConfig {
 
         Ok(OrchestratorResources::with_review_provider(
             Arc::new(interceptor_catalog),
-            Arc::new(external_methods),
+            Arc::new(method_catalog),
             review_provider,
         ))
     }

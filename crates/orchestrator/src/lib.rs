@@ -6,8 +6,8 @@ mod transcript;
 pub mod action;
 pub mod config;
 pub mod error;
-pub mod external_method;
 pub mod interceptor;
+pub mod method;
 pub mod review;
 pub mod runtime;
 

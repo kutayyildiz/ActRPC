@@ -63,10 +63,10 @@ impl OrchestratorConfig {
     }
 
     fn merge_append(&mut self, other: OrchestratorConfig) -> Result<(), ConfigError> {
-        self.ensure_no_duplicate_external_methods(&other)?;
+        self.ensure_no_duplicate_method_sources(&other)?;
         self.ensure_no_duplicate_interceptors(&other)?;
 
-        self.external_methods.extend(other.external_methods);
+        self.methods.extend(other.methods);
         self.interceptors.extend(other.interceptors);
         self.pipelines.outbound.extend(other.pipelines.outbound);
         self.pipelines.inbound.extend(other.pipelines.inbound);
@@ -74,21 +74,21 @@ impl OrchestratorConfig {
         Ok(())
     }
 
-    fn ensure_no_duplicate_external_methods(
+    fn ensure_no_duplicate_method_sources(
         &self,
         other: &OrchestratorConfig,
     ) -> Result<(), ConfigError> {
         let mut names = HashSet::new();
 
-        for config in &self.external_methods {
-            names.insert(config.descriptor.name.clone());
+        for config in &self.methods {
+            names.insert(config.name().clone());
         }
 
-        for config in &other.external_methods {
-            let name = config.descriptor.name.clone();
+        for config in &other.methods {
+            let name = config.name().clone();
 
             if !names.insert(name.clone()) {
-                return Err(ConfigError::DuplicateExternalMethod { name });
+                return Err(ConfigError::DuplicateMethodProvider { name });
             }
         }
 

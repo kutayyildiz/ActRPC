@@ -5,24 +5,21 @@ mod action;
 mod action_execution;
 mod action_handler;
 mod config;
-mod external_method_error;
 mod interceptor;
 mod interceptor_runtime;
+mod method;
 
 pub use action::ActionError;
 pub use action_execution::ActionExecutionError;
 pub use action_handler::ActionHandlerError;
 pub use config::ConfigError;
-pub use external_method_error::ExternalMethodError;
 pub use interceptor::InterceptorError;
 pub use interceptor_runtime::InterceptorRuntimeError;
+pub use method::{MethodCallError, MethodCatalogError, MethodProviderBuildError};
 
 #[non_exhaustive]
 #[derive(Debug, thiserror::Error)]
 pub enum OrchestratorError {
-    #[error(transparent)]
-    ExternalMethod(#[from] ExternalMethodError),
-
     #[error(transparent)]
     Action(#[from] ActionError),
 
@@ -40,4 +37,10 @@ pub enum OrchestratorError {
 
     #[error(transparent)]
     Config(#[from] ConfigError),
+
+    #[error(transparent)]
+    MethodCatalog(#[from] MethodCatalogError),
+
+    #[error(transparent)]
+    MethodCall(#[from] MethodCallError),
 }
