@@ -24,19 +24,16 @@ dependencies = [
  "serde_json",
  "strum",
  "thiserror",
+ "trybuild",
 ]
 
 [[package]]
 name = "actrpc-core-macros"
 version = "0.1.0"
 dependencies = [
- "actrpc-core",
  "proc-macro2",
  "quote",
- "serde",
- "serde_json",
  "syn",
- "trybuild",
 ]
 
 [[package]]
