@@ -1,0 +1,28 @@
+[package]
+name = "actrpc-core-macros"
+version.workspace = true
+edition.workspace = true
+license.workspace = true
+repository.workspace = true
+authors.workspace = true
+
+description = "Procedural macros for ActRPC core."
+documentation = "https://docs.rs/actrpc-core-macros"
+readme = "README.md"
+keywords = ["rpc", "async", "action", "macro"]
+categories = ["development-tools"]
+
+[lib]
+proc-macro = true
+
+[dependencies]
+proc-macro2 = "1"
+quote = "1"
+syn = { version = "2", features = ["full"] }
+
+[dev-dependencies]
+actrpc-core = { path = "../core", version = "0.1.0" }
+
+trybuild = "1.0"
+serde = { version = "1.0.228", features = ["derive"] }
+serde_json = "1.0.149"

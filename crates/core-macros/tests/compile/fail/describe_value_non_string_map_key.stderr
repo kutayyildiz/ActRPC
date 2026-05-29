@@ -1,0 +1,16 @@
+error[E0277]: the trait bound `HashMap<i32, std::string::String>: DescribeValue` is not satisfied
+ --> tests/compile/fail/describe_value_non_string_map_key.rs:8:10
+  |
+8 |     bad: HashMap<i32, String>,
+  |          ^^^^^^^^^^^^^^^^^^^^ the trait `DescribeValue` is not implemented for `HashMap<i32, std::string::String>`
+  |
+  = help: the following other types implement trait `DescribeValue`:
+            ActionKind
+            HashSet<T>
+            InterceptorCapabilities
+            JsonRpcError
+            JsonRpcErrorResponse
+            JsonRpcId
+            JsonRpcParams
+            JsonRpcResponse
+          and $N others

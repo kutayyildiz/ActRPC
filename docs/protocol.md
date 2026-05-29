@@ -109,13 +109,13 @@ outbound | inbound | both
 ```json
 {
   "jsonrpc": "2.0",
-  "id": "<int>",
+  "id": "<string | int | null>",
   "method": "inspect",
   "params": {
     "origin": "<string>",
     "message": "<JSON-RPC 2.0 Request>",
     "executed_actions?": [
-      { "<action_name>": "<string>", "<action_params?>": "<object>" }
+      { "<action_name>": "<string>", "<action_params?>": "<any>" }
     ]
   }
 }
@@ -126,13 +126,13 @@ outbound | inbound | both
 ```json
 {
   "jsonrpc": "2.0",
-  "id": "<int>",
+  "id": "<string | int | null>",
   "method": "inspect",
   "params": {
     "origin": "<string>",
     "message": "<JSON-RPC 2.0 Response>",
     "executed_actions?": [
-      { "<action_name>": "<string>", "<action_params?>": "<object>" }
+      { "<action>": "<action_object>", "<result?>": "<any>" }
     ]
   }
 }
@@ -145,8 +145,8 @@ outbound | inbound | both
 ```json
 {
   "jsonrpc": "2.0",
-  "id": "<int>",
-  "result": { "actions?": "<action_object[]>", "final": "<boolean>" }
+  "id": "<string | int | null>",
+  "result": { "actions?": "<action_object[]>", "is_final": "<boolean>" }
 }
 ```
 
@@ -155,7 +155,7 @@ outbound | inbound | both
 ```json
 {
   "action": "<string>",
-  "action_params?": "<object>"
+  "params?": "<any>"
 }
 ```
 

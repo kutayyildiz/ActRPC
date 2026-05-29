@@ -1,0 +1,26 @@
+[package]
+name = "actrpc-interceptor"
+version.workspace = true
+edition.workspace = true
+license.workspace = true
+repository.workspace = true
+authors.workspace = true
+
+description = "Concrete interceptors for ActRPC."
+documentation = "https://docs.rs/actrpc-interceptor"
+readme = "README.md"
+keywords = ["rpc", "async", "action", "json"]
+categories = ["network-programming"]
+
+[dependencies]
+actrpc-core = { path = "../core", version = "0.1.0" }
+actrpc-orchestrator = { path = "../orchestrator", version = "0.1.0" }
+
+serde = { version = "1.0.228", features = ["derive"] }
+serde_json = "1.0.149"
+serde_yaml = "0.9.34"
+toml = "1.1.2"
+thiserror = "2.0.18"
+regex = "1.12.3"
+globset = "0.4.18"
+tokio = { version = "1", features = ["macros", "rt"] }

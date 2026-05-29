@@ -1,0 +1,5 @@
+error: enum variants must have exactly one unnamed field
+ --> tests/compile/fail/describe_value_enum_multi_field_variant.rs:6:5
+  |
+6 |     Pair(String, i32),
+  |     ^^^^^^^^^^^^^^^^^

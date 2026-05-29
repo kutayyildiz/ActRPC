@@ -9,7 +9,29 @@
 ```json
 {
   "action": "modify_params",
+  "action_params": "<object | array>"
+}
+```
+
+### modify_result
+
+**Action**
+
+```json
+{
+  "action": "modify_result",
   "action_params": "<any>"
+}
+```
+
+### modify_error
+
+**Action**
+
+```json
+{
+  "action": "modify_error",
+  "action_params": "<JSON-RPC 2.0 Error Object>"
 }
 ```
 
@@ -20,7 +42,7 @@
 ```json
 {
   "action": "call_external_method",
-  "action_params": { "method_name": "<string>", "method_params": "<object>" }
+  "action_params": "<JSON-RPC 2.0 Request Object>"
 }
 ```
 
@@ -28,7 +50,7 @@
 
 ```json
 {
-  "result": "<object>"
+  "result": "<JSON-RPC 2.0 Result Object>"
 }
 ```
 
@@ -154,8 +176,8 @@
   "ts": "<float>",
   "message": {
     "jsonrpc": "2.0",
-    "id": "<int>",
-    "method": "inspect",
+    "id": "<string | int | null>",
+    "method": "intercept",
     "params": {
       "origin": "<string>",
       "message": "<JSON-RPC 2.0>", // Phase(Inbound) -> Response | Phase(Outbound) -> Request
@@ -179,8 +201,8 @@
   "ts": "<float>",
   "message": {
     "jsonrpc": "2.0",
-    "id": "<int>",
-    "result": { "actions?": "<action_object[]>", "final": "<boolean>" }
+    "id": "<string | int | null>",
+    "result": { "actions?": "<action_object[]>", "is_final": "<boolean>" }
   }
 }
 ```
@@ -248,5 +270,50 @@
   "seq": "<int>",
   "ts": "<float>",
   "message": "<JSON-RPC 2.0>"
+}
+```
+
+## JSON-RPC 2.0 Object
+
+- ? = optional
+
+### Request Object (non-notification - expects response)
+
+```json
+{
+  "jsonrpc": "2.0",
+  "id": "<int | string | null>",
+  "method": "<string>",
+  "params?": "<object | array>"
+}
+```
+
+### Request Object (notification - does not expect response)
+
+```json
+{
+  "jsonrpc": "2.0",
+  "method": "<string>",
+  "params?": "<object | array>"
+}
+```
+
+### Result Object
+
+```json
+{
+  "jsonrpc": "2.0",
+  "id": "<int | string | null>",
+  "result": "<any>"
+}
+```
+
+### Error Object
+
+```json
+{
+  "jsonrpc": "2.0",
+  "id": "<int | string | null>",
+  "error": { "code": "<int>", "message": "<string>", "data?": "<any>" }
 }
 ```

@@ -1,0 +1,33 @@
+rules:
+  - name: review_sensitive_write
+    match_expr:
+      all:
+        - condition:
+            fact: phase
+            matcher:
+              kind: exact
+              value: outbound
+        - condition:
+            fact: message.method
+            matcher:
+              kind: exact
+              value: write_file
+        - condition:
+            fact: message.params.path
+            matcher:
+              kind: glob
+              value: /home/*/**
+    apply:
+      immediate:
+        - exclude_interceptors:
+            names:
+              - transcript_logger
+      review:
+        title: Sensitive file write
+        reason: Agent wants to write inside a user-owned directory.
+        severity: high
+        on_deny:
+          - reject_call:
+              error:
+                code: -32051
+                message: user denied sensitive file write

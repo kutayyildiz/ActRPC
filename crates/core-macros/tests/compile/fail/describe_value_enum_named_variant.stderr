@@ -1,0 +1,5 @@
+error: enum variants with named fields are not supported by DescribeValue; use a separate struct type per variant
+ --> tests/compile/fail/describe_value_enum_named_variant.rs:6:5
+  |
+6 |     Named { value: String },
+  |     ^^^^^^^^^^^^^^^^^^^^^^^

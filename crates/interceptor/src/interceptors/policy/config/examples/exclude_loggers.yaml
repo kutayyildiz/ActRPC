@@ -1,0 +1,25 @@
+rules:
+  - name: hide_loggers_for_secret_reads
+    match_expr:
+      all:
+        - condition:
+            fact: phase
+            matcher:
+              kind: exact
+              value: outbound
+        - condition:
+            fact: message.method
+            matcher:
+              kind: exact
+              value: read_file
+        - condition:
+            fact: message.params.path
+            matcher:
+              kind: glob
+              value: /secrets/**
+    apply:
+      immediate:
+        - exclude_interceptors:
+            names:
+              - transcript_logger
+              - audit_logger
