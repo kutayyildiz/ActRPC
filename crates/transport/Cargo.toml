@@ -1,9 +1,20 @@
 [package]
 name = "actrpc-transport"
-version = "0.1.0"
-edition = "2024"
+version.workspace = true
+edition.workspace = true
+license.workspace = true
+repository.workspace = true
+authors.workspace = true
+
+description = "Transport abstractions and implementations for ActRPC."
+documentation = "https://docs.rs/actrpc-transport"
+readme = "README.md"
+keywords = ["rpc", "async", "transport", "json"]
+categories = ["network-programming", "asynchronous"]
 
 [dependencies]
+actrpc-core = { path = "../core", version = "0.1.0" }
+
 thiserror = "2.0.18"
 serde = { version = "1.0.228", features = ["derive"] }
 serde_json = "1.0.149"
@@ -27,5 +38,3 @@ tokio-tungstenite = { version = "0.29.0", features = [
   "rustls-tls-webpki-roots",
 ] }
 futures-util = "0.3.32"
-
-actrpc-core = { path = "../core" }

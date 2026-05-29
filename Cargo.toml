@@ -8,3 +8,11 @@ members = [
   "crates/transport",
   "crates/cli",
 ]
+
+[workspace.package]
+version = "0.1.0"
+edition = "2024"
+license = "MIT OR Apache-2.0"
+repository = "https://github.com/kutayyildiz/ActRPC"
+authors = ["Kutay YILDIZ <mail@kutayyildiz.com>"]
+readme = "README.md"
