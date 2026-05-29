@@ -1,0 +1,18 @@
+[package]
+name = "actrpc-cli"
+version = "0.1.0"
+edition = "2024"
+
+[[bin]]
+name = "actrpc"
+path = "src/main.rs"
+
+[dependencies]
+actrpc-transport = { path = "../transport" }
+actrpc-core = { path = "../core" }
+actrpc-interceptor = { path = "../interceptor" }
+actrpc-orchestrator = { path = "../orchestrator" }
+
+tokio = { version = "1.52.1", features = ["macros", "rt-multi-thread"] }
+clap = { version = "4.6.1", features = ["derive"] }
+serde_json = "1.0.149"
