@@ -1,0 +1,31 @@
+rules:
+  - name: block_sensitive_system_writes
+    match_expr:
+      all:
+        - condition:
+            fact: phase
+            matcher:
+              kind: exact
+              value: outbound
+        - condition:
+            fact: message.method
+            matcher:
+              kind: exact
+              value: write_file
+        - any:
+            - condition:
+                fact: message.params.path
+                matcher:
+                  kind: glob
+                  value: /etc/**
+            - condition:
+                fact: message.params.path
+                matcher:
+                  kind: glob
+                  value: /root/**
+    apply:
+      immediate:
+        - reject_call:
+            error:
+              code: -32010
+              message: write to sensitive system path denied
