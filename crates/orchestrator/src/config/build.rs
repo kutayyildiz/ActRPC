@@ -1,39 +1,64 @@
 use crate::{
-    action::available_actions, config::OrchestratorConfig, error::OrchestratorError,
-    interceptor::InterceptorCatalog, method::MethodCatalog, review::ReviewProvider,
-    runtime::OrchestratorResources,
+    action::available_actions, config::OrchestratorConfig, endpoint::EndpointCatalog,
+    error::OrchestratorError, interceptor::InterceptorCatalog, method::MethodCatalog,
+    method::spawn_watchable_listeners, review::ReviewProvider, runtime::OrchestratorResources,
 };
-use actrpc_transport::{JsonRpcClient, JsonRpcClientProvider, TransportError};
+use actrpc_transport::{
+    JsonRpcClient, JsonRpcClientProvider, JsonRpcSession, JsonRpcSessionProvider, TransportError,
+};
 use std::sync::Arc;
 
 impl OrchestratorConfig {
-    pub async fn build_resources<P>(
+    pub async fn build_resources<CP, SP>(
         self,
-        provider: &P,
+        client_provider: &CP,
+        session_provider: &SP,
         review_provider: Arc<dyn ReviewProvider>,
     ) -> Result<OrchestratorResources, OrchestratorError>
     where
-        P: JsonRpcClientProvider<
+        CP: JsonRpcClientProvider<
                 Client = Arc<dyn JsonRpcClient<Error = TransportError>>,
                 Error = TransportError,
             > + Send
             + Sync,
+        SP: JsonRpcSessionProvider<
+                Session = Arc<dyn JsonRpcSession<Error = TransportError>>,
+                Error = TransportError,
+            > + Send
+            + Sync,
     {
-        let method_catalog = MethodCatalog::from_configs(self.methods, provider).await?;
+        let endpoint_catalog = EndpointCatalog::from_configs(
+            self.endpoints,
+            &self.methods,
+            &self.interceptors,
+            client_provider,
+            session_provider,
+        )
+        .await?;
+
+        let method_catalog =
+            Arc::new(MethodCatalog::from_configs(self.methods, &endpoint_catalog).await?);
+
+        let listener_tasks = spawn_watchable_listeners(method_catalog.clone(), &endpoint_catalog)?;
 
         let interceptor_catalog = InterceptorCatalog::build_from_configs(
             self.interceptors,
             self.pipelines.outbound,
             self.pipelines.inbound,
             &available_actions(),
-            provider,
+            &endpoint_catalog,
         )
         .await?;
 
-        Ok(OrchestratorResources::with_review_provider(
+        let runtime = self.runtime.clone().unwrap_or_default();
+        runtime.validate()?;
+
+        Ok(OrchestratorResources::with_review_provider_and_runtime(
             Arc::new(interceptor_catalog),
-            Arc::new(method_catalog),
+            method_catalog,
             review_provider,
+            listener_tasks,
+            runtime,
         ))
     }
 }

@@ -11,7 +11,7 @@ It places an orchestrator between a caller and a destination JSON-RPC endpoint. 
 | [`actrpc-core`](crates/core)                 | Shared protocol model: JSON-RPC types, interception requests/responses, action records, descriptors, participants, and shared errors. |
 | [`actrpc-core-macros`](crates/core-macros)   | Derive macros for value, parameter, and action-result descriptors.                                                                    |
 | [`actrpc-orchestrator`](crates/orchestrator) | Runtime engine that runs interceptor phases, executes actions, forwards calls, and records transcript state.                          |
-| [`actrpc-transport`](crates/transport)       | JSON-RPC client abstractions and concrete transports for stdio, TCP, local IPC, HTTP, and WebSocket targets.                          |
+| [`actrpc-transport`](crates/transport)       | JSON-RPC clients and `JsonRpcSession` for stdio, TCP, local IPC, and WebSocket. HTTP remains request-response only. Endpoint-backed via orchestrator. |
 | [`actrpc-interceptor`](crates/interceptor)   | Interceptor-side helpers and bundled interceptor configuration models.                                                                |
 
 ## Pipeline

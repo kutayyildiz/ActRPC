@@ -129,3 +129,21 @@ pub struct MethodInfo {
     #[serde(default)]
     pub info: serde_json::Value,
 }
+
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
+#[serde(deny_unknown_fields)]
+pub struct MethodProviderSnapshot {
+    pub provider: ProviderName,
+
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub version: Option<String>,
+
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub description: Option<String>,
+
+    #[serde(default)]
+    pub methods: Vec<MethodInfo>,
+
+    #[serde(default)]
+    pub info: serde_json::Value,
+}

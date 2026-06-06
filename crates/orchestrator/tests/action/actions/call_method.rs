@@ -49,17 +49,29 @@ impl MethodProvider for StaticMethodProvider {
         &self.name
     }
 
-    fn description(&self) -> Option<&str> {
-        None
+    fn snapshot(&self) -> actrpc_orchestrator::method::MethodProviderSnapshot {
+        actrpc_orchestrator::method::MethodProviderSnapshot {
+            provider: self.name.clone(),
+            version: None,
+            description: None,
+            methods: self.methods.clone(),
+            info: json!({}),
+        }
     }
 
-    fn info(&self) -> &serde_json::Value {
-        static INFO: std::sync::OnceLock<serde_json::Value> = std::sync::OnceLock::new();
-        INFO.get_or_init(|| json!({}))
-    }
-
-    fn methods(&self) -> &[MethodInfo] {
-        &self.methods
+    fn refresh<'a>(
+        &'a self,
+    ) -> actrpc_orchestrator::method::MethodProviderFuture<
+        'a,
+        Result<
+            actrpc_orchestrator::method::MethodProviderSnapshot,
+            actrpc_orchestrator::error::MethodProviderRefreshError,
+        >,
+    > {
+        let p = self.name.clone();
+        Box::pin(async move {
+            Err(actrpc_orchestrator::error::MethodProviderRefreshError::Unsupported { provider: p })
+        })
     }
 
     fn request_message(
@@ -100,7 +112,13 @@ async fn call_method_returns_success_result() {
         "value": 42
     })));
 
-    let parent_call = Arc::new(CallRuntime::root(request_message("parent", None)));
+    let transcript = Arc::new(actrpc_orchestrator::runtime::TranscriptState::new());
+    let call_id = transcript.allocate_call_id();
+    let parent_call = Arc::new(CallRuntime::root(
+        request_message("parent", None),
+        transcript,
+        call_id,
+    ));
 
     let mut registry = ActionRegistry::new();
     registry
@@ -135,7 +153,13 @@ async fn call_method_returns_success_result() {
 async fn call_method_maps_json_rpc_error_response_to_dependency_failed() {
     let factory = test_factory(error_message(json_error(-32000, "downstream failed")));
 
-    let parent_call = Arc::new(CallRuntime::root(request_message("parent", None)));
+    let transcript = Arc::new(actrpc_orchestrator::runtime::TranscriptState::new());
+    let call_id = transcript.allocate_call_id();
+    let parent_call = Arc::new(CallRuntime::root(
+        request_message("parent", None),
+        transcript,
+        call_id,
+    ));
 
     let mut registry = ActionRegistry::new();
     registry
@@ -172,10 +196,17 @@ async fn call_method_maps_missing_provider_to_call_execution_dependency_failed()
         Arc::new(empty_interceptor_catalog()),
         Arc::new(MethodCatalog::new(HashMap::new())),
         Arc::new(UnavailableReviewProvider),
+        vec![],
     );
 
     let factory = Arc::new(CallExecutionFactory::new(Arc::new(resources)));
-    let parent_call = Arc::new(CallRuntime::root(request_message("parent", None)));
+    let transcript = Arc::new(actrpc_orchestrator::runtime::TranscriptState::new());
+    let call_id = transcript.allocate_call_id();
+    let parent_call = Arc::new(CallRuntime::root(
+        request_message("parent", None),
+        transcript,
+        call_id,
+    ));
 
     let mut registry = ActionRegistry::new();
     registry
@@ -216,6 +247,7 @@ fn test_factory(response: JsonRpcMessage) -> Arc<CallExecutionFactory> {
         Arc::new(empty_interceptor_catalog()),
         Arc::new(MethodCatalog::new(providers)),
         Arc::new(UnavailableReviewProvider),
+        vec![],
     );
 
     Arc::new(CallExecutionFactory::new(Arc::new(resources)))

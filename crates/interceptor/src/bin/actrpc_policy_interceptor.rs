@@ -12,8 +12,8 @@ use std::{
 };
 use tokio::runtime::Runtime;
 
-const INITIALIZE_METHOD: &str = "initialize";
-const INTERCEPT_METHOD: &str = actrpc_core::INTERCEPT_METHOD;
+const INITIALIZE_METHOD: &str = actrpc_core::ACTRPC_INTERCEPTOR_INITIALIZE_METHOD;
+const INTERCEPT_METHOD: &str = actrpc_core::ACTRPC_INTERCEPTOR_INTERCEPT_METHOD;
 
 fn main() {
     if let Err(error) = run() {

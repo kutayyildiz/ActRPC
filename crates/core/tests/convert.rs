@@ -1,4 +1,5 @@
 use actrpc_core::{
+    ACTRPC_INTERCEPTOR_INTERCEPT_METHOD,
     action::{ActionKind, RequestedActionRecord},
     error::{ActRpcError, ProtocolError},
     interception::{InterceptionRequest, InterceptionResponse, InterceptorContinuation},
@@ -30,7 +31,7 @@ fn test_interception_request_into_json_rpc_request() {
 
     assert_eq!(req.jsonrpc, JsonRpcVersion::V2_0);
     assert_eq!(req.id, JsonRpcId::Number(1.into()));
-    assert_eq!(req.method, "intercept");
+    assert_eq!(req.method, ACTRPC_INTERCEPTOR_INTERCEPT_METHOD);
 
     let (roundtrip_id, roundtrip_payload): (JsonRpcId, InterceptionRequest) =
         req.try_into().unwrap();
@@ -52,7 +53,7 @@ fn test_json_rpc_request_try_into_interception_request_rejects_wrong_method() {
 
     match err {
         ActRpcError::Protocol(ProtocolError::UnexpectedMethod { expected, actual }) => {
-            assert_eq!(expected, "intercept");
+            assert_eq!(expected, ACTRPC_INTERCEPTOR_INTERCEPT_METHOD);
             assert_eq!(actual, "not_intercept");
         }
         other => panic!("unexpected error: {other:?}"),
@@ -64,7 +65,7 @@ fn test_json_rpc_request_try_into_interception_request_rejects_missing_params() 
     let req = JsonRpcRequest {
         jsonrpc: JsonRpcVersion::V2_0,
         id: JsonRpcId::Number(1.into()),
-        method: "intercept".to_string(),
+        method: ACTRPC_INTERCEPTOR_INTERCEPT_METHOD.to_string(),
         params: None,
     };
 
@@ -80,7 +81,7 @@ fn test_json_rpc_request_try_into_interception_request_rejects_array_params() {
     let req = JsonRpcRequest {
         jsonrpc: JsonRpcVersion::V2_0,
         id: JsonRpcId::Number(1.into()),
-        method: "intercept".to_string(),
+        method: ACTRPC_INTERCEPTOR_INTERCEPT_METHOD.to_string(),
         params: Some(JsonRpcParams::Array(vec![json!(1)])),
     };
 

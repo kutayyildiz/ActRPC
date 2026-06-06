@@ -1,9 +1,11 @@
 use crate::{
+    endpoint::JsonRpcEndpoint,
     error::InterceptorRuntimeError,
     interceptor::{Interceptor, InterceptorFuture},
 };
 use actrpc_core::{
-    INTERCEPT_METHOD, InterceptorInitialization,
+    ACTRPC_INTERCEPTOR_INITIALIZE_METHOD, ACTRPC_INTERCEPTOR_INTERCEPT_METHOD,
+    InterceptorInitialization,
     error::CodecError,
     interception::{InterceptionRequest, InterceptionResponse},
     json_rpc::{
@@ -11,7 +13,6 @@ use actrpc_core::{
         JsonRpcSingleMessage, JsonRpcVersion,
     },
 };
-use actrpc_transport::{JsonRpcClient, TransportError};
 use serde::de::DeserializeOwned;
 use serde_json::Value;
 use std::sync::{
@@ -20,14 +21,14 @@ use std::sync::{
 };
 
 pub struct JsonRpcBackedInterceptor {
-    client: Arc<dyn JsonRpcClient<Error = TransportError>>,
+    endpoint: Arc<JsonRpcEndpoint>,
     next_id: AtomicU64,
 }
 
 impl JsonRpcBackedInterceptor {
-    pub fn new(client: Arc<dyn JsonRpcClient<Error = TransportError>>) -> Self {
+    pub fn new(endpoint: Arc<JsonRpcEndpoint>) -> Self {
         Self {
-            client,
+            endpoint,
             next_id: AtomicU64::new(1),
         }
     }
@@ -47,19 +48,20 @@ impl Interceptor for JsonRpcBackedInterceptor {
         Box::pin(async move {
             let id = self.next_id();
 
-            let request = JsonRpcMessage::Single(JsonRpcSingleMessage::Request(JsonRpcRequest {
+            let req = JsonRpcRequest {
                 jsonrpc: JsonRpcVersion::V2_0,
                 id: id.clone(),
-                method: "initialize".to_owned(),
+                method: ACTRPC_INTERCEPTOR_INITIALIZE_METHOD.to_owned(),
                 params: None,
-            }));
+            };
 
-            let response = self
-                .client
-                .send(request)
+            let resp = self
+                .endpoint
+                .request(req)
                 .await
                 .map_err(InterceptorRuntimeError::Transport)?;
 
+            let response = JsonRpcMessage::Single(JsonRpcSingleMessage::Response(resp));
             decode_success_result::<InterceptorInitialization>(id, response)
         })
     }
@@ -86,20 +88,20 @@ impl Interceptor for JsonRpcBackedInterceptor {
                 ));
             };
 
-            let rpc_request =
-                JsonRpcMessage::Single(JsonRpcSingleMessage::Request(JsonRpcRequest {
-                    jsonrpc: JsonRpcVersion::V2_0,
-                    id: id.clone(),
-                    method: INTERCEPT_METHOD.to_owned(),
-                    params: Some(JsonRpcParams::Object(params)),
-                }));
+            let rpc_req = JsonRpcRequest {
+                jsonrpc: JsonRpcVersion::V2_0,
+                id: id.clone(),
+                method: ACTRPC_INTERCEPTOR_INTERCEPT_METHOD.to_owned(),
+                params: Some(JsonRpcParams::Object(params)),
+            };
 
-            let response = self
-                .client
-                .send(rpc_request)
+            let resp = self
+                .endpoint
+                .request(rpc_req)
                 .await
                 .map_err(InterceptorRuntimeError::Transport)?;
 
+            let response = JsonRpcMessage::Single(JsonRpcSingleMessage::Response(resp));
             decode_success_result::<InterceptionResponse>(id, response)
         })
     }

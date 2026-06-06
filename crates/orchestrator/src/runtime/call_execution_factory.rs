@@ -30,7 +30,9 @@ impl CallExecutionFactory {
             .method_catalog
             .request_message(&provider, &method, params)?;
 
-        let call = Arc::new(CallRuntime::root(message));
+        let transcript = Arc::new(crate::runtime::TranscriptState::new());
+        let call_id = transcript.allocate_call_id();
+        let call = Arc::new(CallRuntime::root(message, transcript, call_id));
 
         Ok(CallExecution::new(self.clone(), call, provider, method))
     }
@@ -42,15 +44,26 @@ impl CallExecutionFactory {
         params: Option<JsonRpcParams>,
         parent: &CallRuntime,
     ) -> Result<CallExecution, OrchestratorError> {
+        let child_depth = parent.depth() + 1;
+        if child_depth > self.resources.runtime.max_call_depth {
+            return Err(OrchestratorError::MaxCallDepthExceeded {
+                attempted_depth: child_depth,
+                max_call_depth: self.resources.runtime.max_call_depth,
+            });
+        }
+
         let message = self
             .resources
             .method_catalog
             .request_message(&provider, &method, params)?;
 
+        let call_id = parent.transcript.allocate_call_id();
         let call = Arc::new(CallRuntime::nested(
             message,
             parent.transcript.clone(),
-            parent.depth(),
+            call_id,
+            parent.call_id(),
+            child_depth,
         ));
 
         Ok(CallExecution::new(self.clone(), call, provider, method))

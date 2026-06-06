@@ -14,15 +14,13 @@ use actrpc_orchestrator::{
         ImmutableInterceptorPipeline, Interceptor, InterceptorCatalog, InterceptorCatalogEntry,
         InterceptorFuture, InterceptorPolicy,
     },
-    method::{
-        MethodCatalog, MethodName, MethodSourceConfig, NativeMethodConfig,
-        NativeMethodSourceConfig, ProviderName,
-    },
+    method::{MethodCatalog, MethodInfo, MethodName, MethodSourceConfig, ProviderName},
     runtime::{CallExecutionFactory, DefaultOrchestrator, OrchestratorResources},
 };
 use actrpc_transport::{
     JsonRpcClient, JsonRpcClientFuture, JsonRpcClientProvider, JsonRpcClientProviderFuture,
-    TransportError, TransportTarget, target::HttpTarget,
+    JsonRpcSession, JsonRpcSessionProvider, JsonRpcSessionProviderFuture, TransportError,
+    TransportTarget, target::HttpTarget,
 };
 use serde_json::json;
 use std::{
@@ -350,16 +348,47 @@ async fn test_orchestrator(
     catalog: InterceptorCatalog,
     client: Arc<RecordingClient>,
 ) -> DefaultOrchestrator {
-    let provider = StaticProvider {
+    let client_provider = StaticProvider {
         client: client as Arc<dyn JsonRpcClient<Error = TransportError>>,
     };
-
-    let method_catalog = MethodCatalog::from_configs(
-        vec![MethodSourceConfig::Native(native_method_source_config())],
-        &provider,
+    let endpoint_name = actrpc_orchestrator::EndpointName::new("test_ep");
+    let ep_config = actrpc_orchestrator::EndpointConfig {
+        name: endpoint_name.clone(),
+        target: dummy_target(),
+    };
+    let endpoint_catalog = actrpc_orchestrator::EndpointCatalog::from_configs(
+        vec![ep_config],
+        &[],
+        &[],
+        &client_provider,
+        &NoopSessionProvider,
     )
     .await
     .unwrap();
+
+    let method_source =
+        MethodSourceConfig::JsonRpc(actrpc_orchestrator::method::JsonRpcMethodSourceConfig {
+            provider: ProviderName::from(TEST_PROVIDER),
+            endpoint: endpoint_name,
+            discovery: actrpc_orchestrator::method::JsonRpcMethodDiscoveryConfig::Static {
+                methods: vec![
+                    MethodInfo {
+                        name: MethodName::from("sum"),
+                        description: None,
+                        info: json!({}),
+                    },
+                    MethodInfo {
+                        name: MethodName::from("get"),
+                        description: None,
+                        info: json!({}),
+                    },
+                ],
+            },
+        });
+
+    let method_catalog = MethodCatalog::from_configs(vec![method_source], &endpoint_catalog)
+        .await
+        .unwrap();
 
     let resources = Arc::new(OrchestratorResources::new(
         Arc::new(catalog),
@@ -369,25 +398,6 @@ async fn test_orchestrator(
     let factory = Arc::new(CallExecutionFactory::new(resources));
 
     DefaultOrchestrator::new(factory)
-}
-
-fn native_method_source_config() -> NativeMethodSourceConfig {
-    NativeMethodSourceConfig {
-        name: ProviderName::from(TEST_PROVIDER),
-        description: None,
-        target: dummy_target(),
-        info: serde_json::Value::Null,
-        methods: vec![native_method_config("sum"), native_method_config("get")],
-    }
-}
-
-fn native_method_config(name: &str) -> NativeMethodConfig {
-    NativeMethodConfig {
-        name: MethodName::from(name),
-        remote_method: name.to_owned(),
-        description: None,
-        info: serde_json::Value::Null,
-    }
 }
 
 fn single_interceptor_catalog(
@@ -405,6 +415,7 @@ fn single_interceptor_catalog(
             name: name.to_owned(),
             policy,
             interceptor,
+            runtime_limits: None,
         },
     );
 
@@ -431,6 +442,7 @@ fn two_interceptor_catalog(
             name: first.0.to_owned(),
             policy: first_policy,
             interceptor: first.1,
+            runtime_limits: None,
         },
     );
 
@@ -440,6 +452,7 @@ fn two_interceptor_catalog(
             name: second.0.to_owned(),
             policy: second_policy,
             interceptor: second.1,
+            runtime_limits: None,
         },
     );
 
@@ -570,4 +583,22 @@ fn dummy_target() -> TransportTarget {
         headers: vec![],
         timeout_ms: 1_000,
     })
+}
+
+struct NoopSessionProvider;
+
+impl JsonRpcSessionProvider for NoopSessionProvider {
+    type Error = TransportError;
+    type Session = Arc<dyn JsonRpcSession<Error = TransportError>>;
+
+    fn get_session<'a>(
+        &'a self,
+        _target: &'a TransportTarget,
+    ) -> JsonRpcSessionProviderFuture<'a, Result<Self::Session, Self::Error>> {
+        Box::pin(async move {
+            Err(TransportError::Internal {
+                message: "session not used in this test".to_owned(),
+            })
+        })
+    }
 }

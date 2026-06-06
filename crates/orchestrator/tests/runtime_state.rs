@@ -1,12 +1,8 @@
-use actrpc_core::{
-    json_rpc::{
-        JsonRpcError, JsonRpcId, JsonRpcMessage, JsonRpcRequest, JsonRpcSingleMessage,
-        JsonRpcVersion,
-    },
-    participant::{Participant, ParticipantType},
+use actrpc_core::json_rpc::{
+    JsonRpcError, JsonRpcId, JsonRpcMessage, JsonRpcRequest, JsonRpcSingleMessage, JsonRpcVersion,
 };
 use actrpc_orchestrator::{
-    TranscriptEntry,
+    CallId, PROTOCOL_INTERCEPTOR_REQUEST, TranscriptEntryInput, TranscriptParticipant,
     runtime::{CurrentCallRejection, InFlightMessageState, TranscriptState},
 };
 use serde_json::json;
@@ -60,34 +56,35 @@ fn current_call_rejection_set_snapshot_clear() {
 fn transcript_state_appends_and_snapshots_entries() {
     let state = TranscriptState::new();
 
-    assert!(state.is_empty());
-    assert_eq!(state.len(), 0);
+    assert!(state.is_empty().unwrap());
+    assert_eq!(state.len().unwrap(), 0);
 
-    let entry = TranscriptEntry {
-        from: Participant {
-            kind: ParticipantType::User,
-            id: "cli".to_owned(),
-        },
-        to: Participant {
-            kind: ParticipantType::Orchestrator,
-            id: "main".to_owned(),
-        },
-        seq: 1,
-        ts: 123.0,
-        message: request_message("ping"),
-    };
+    state
+        .append(TranscriptEntryInput {
+            call_id: CallId(1),
+            parent_call_id: None,
+            depth: 0,
+            from: TranscriptParticipant::orchestrator_main(),
+            to: TranscriptParticipant::interceptor("policy"),
+            protocol: PROTOCOL_INTERCEPTOR_REQUEST,
+            message: json!({ "origin": { "kind": "orchestrator", "id": "main" } }),
+        })
+        .unwrap();
 
-    state.append(entry.into()).unwrap();
+    assert!(!state.is_empty().unwrap());
+    assert_eq!(state.len().unwrap(), 1);
 
-    assert!(!state.is_empty());
-    assert_eq!(state.len(), 1);
-
-    let snapshot = state.snapshot();
+    let snapshot = state.snapshot().unwrap();
 
     assert_eq!(snapshot.len(), 1);
-    assert_eq!(snapshot[0].from, "user:cli");
-    assert_eq!(snapshot[0].to, "orchestrator:main");
+    assert_eq!(snapshot[0].from, "orchestrator:main");
+    assert_eq!(snapshot[0].to, "interceptor:policy");
     assert_eq!(snapshot[0].seq, 1);
+    assert!(snapshot[0].ts_ms > 0);
+    assert_eq!(snapshot[0].call_id, 1);
+    assert_eq!(snapshot[0].parent_call_id, None);
+    assert_eq!(snapshot[0].depth, 0);
+    assert_eq!(snapshot[0].protocol, PROTOCOL_INTERCEPTOR_REQUEST);
 }
 
 fn request_message(method: &str) -> JsonRpcMessage {

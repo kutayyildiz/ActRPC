@@ -1,51 +1,49 @@
 use crate::{
+    endpoint::EndpointCatalog,
     error::MethodProviderBuildError,
     method::{
         MethodProvider, ProviderName,
         providers::{
+            json_rpc::{JsonRpcMethodProvider, JsonRpcMethodSourceConfig},
             mcp::{McpMethodProvider, McpMethodSourceConfig},
-            native::{NativeMethodProvider, NativeMethodSourceConfig},
         },
     },
 };
-use actrpc_transport::{JsonRpcClient, JsonRpcClientProvider, TransportError};
 use serde::{Deserialize, Serialize};
 use std::sync::Arc;
 
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
-#[serde(tag = "kind", rename_all = "snake_case", deny_unknown_fields)]
+#[serde(rename_all = "snake_case", deny_unknown_fields)]
 pub enum MethodSourceConfig {
-    Native(NativeMethodSourceConfig),
+    JsonRpc(JsonRpcMethodSourceConfig),
     Mcp(McpMethodSourceConfig),
 }
 
 impl MethodSourceConfig {
     pub fn name(&self) -> &ProviderName {
         match self {
-            Self::Native(config) => &config.name,
+            Self::JsonRpc(config) => &config.provider,
             Self::Mcp(config) => &config.name,
         }
     }
 
-    pub async fn build_provider<P>(
+    pub async fn build_provider(
         self,
-        client_provider: &P,
-    ) -> Result<Arc<dyn MethodProvider>, MethodProviderBuildError>
-    where
-        P: JsonRpcClientProvider<
-                Client = Arc<dyn JsonRpcClient<Error = TransportError>>,
-                Error = TransportError,
-            > + Send
-            + Sync,
-    {
+        endpoint_catalog: &EndpointCatalog,
+    ) -> Result<Arc<dyn MethodProvider>, MethodProviderBuildError> {
         match self {
-            Self::Native(config) => {
-                let provider = NativeMethodProvider::from_config(config, client_provider).await?;
+            Self::JsonRpc(config) => {
+                let provider = JsonRpcMethodProvider::from_config(config, endpoint_catalog).await?;
                 Ok(Arc::new(provider) as Arc<dyn MethodProvider>)
             }
-
             Self::Mcp(config) => {
-                let provider = McpMethodProvider::from_config(config, client_provider).await?;
+                let endpoint = endpoint_catalog.get(&config.endpoint).ok_or_else(|| {
+                    MethodProviderBuildError::InvalidConfig {
+                        provider: config.name.clone(),
+                        message: format!("unknown endpoint '{}'", config.endpoint.as_str()),
+                    }
+                })?;
+                let provider = McpMethodProvider::from_config(config, endpoint).await?;
                 Ok(Arc::new(provider) as Arc<dyn MethodProvider>)
             }
         }

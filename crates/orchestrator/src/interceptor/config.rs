@@ -1,5 +1,7 @@
-use crate::interceptor::InterceptorPolicy;
-use actrpc_transport::TransportTarget;
+use crate::{
+    endpoint::EndpointName,
+    interceptor::{InterceptorPolicy, runtime_limits::InterceptorRuntimeLimitsOverride},
+};
 use serde::{Deserialize, Serialize};
 
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
@@ -7,5 +9,8 @@ use serde::{Deserialize, Serialize};
 pub struct InterceptorConfig {
     pub name: String,
     pub policy: InterceptorPolicy,
-    pub target: TransportTarget,
+    pub endpoint: EndpointName,
+
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub runtime: Option<InterceptorRuntimeLimitsOverride>,
 }

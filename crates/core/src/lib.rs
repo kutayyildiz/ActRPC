@@ -11,7 +11,11 @@ pub mod interception;
 pub mod json_rpc;
 pub mod participant;
 
-pub use convert::INTERCEPT_METHOD;
+pub use convert::{
+    ACTRPC_INTERCEPTOR_INITIALIZE_METHOD, ACTRPC_INTERCEPTOR_INTERCEPT_METHOD,
+    ACTRPC_METHOD_PROVIDER_CHANGED_METHOD, ACTRPC_METHOD_PROVIDER_INITIALIZE_METHOD,
+    ACTRPC_METHOD_PROVIDER_REFRESH_METHOD, INTERCEPT_METHOD,
+};
 
 pub use actrpc_core_macros::{DescribeOk, DescribeParams, DescribeValue};
 

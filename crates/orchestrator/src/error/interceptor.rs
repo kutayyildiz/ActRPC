@@ -54,4 +54,7 @@ pub enum InterceptorError {
         interceptor: String,
         message: String,
     },
+
+    #[error("unknown endpoint {name} referenced by interceptor")]
+    UnknownEndpoint { name: String },
 }

@@ -1,9 +1,9 @@
 use crate::{
+    endpoint::{EndpointCatalog, config::EndpointName},
     error::{MethodCallError, MethodCatalogError},
-    method::{MethodProvider, MethodSourceConfig, ProviderName},
+    method::{MethodProvider, MethodProviderSnapshot, MethodSourceConfig, ProviderName},
 };
 use actrpc_core::json_rpc::{JsonRpcMessage, JsonRpcParams};
-use actrpc_transport::{JsonRpcClient, JsonRpcClientProvider, TransportError};
 use std::{collections::HashMap, sync::Arc};
 
 use crate::method::MethodName;
@@ -17,39 +17,27 @@ impl MethodCatalog {
         Self { providers }
     }
 
-    pub async fn from_configs<P>(
+    pub async fn from_configs(
         configs: Vec<MethodSourceConfig>,
-        client_provider: &P,
-    ) -> Result<Self, MethodCatalogError>
-    where
-        P: JsonRpcClientProvider<
-                Client = Arc<dyn JsonRpcClient<Error = TransportError>>,
-                Error = TransportError,
-            > + Send
-            + Sync,
-    {
+        endpoint_catalog: &EndpointCatalog,
+    ) -> Result<Self, MethodCatalogError> {
         let mut providers = HashMap::new();
-
         for config in configs {
             let provider_name = config.name().clone();
-
             if providers.contains_key(&provider_name) {
                 return Err(MethodCatalogError::DuplicateProvider {
                     provider: provider_name,
                 });
             }
-
             let provider = config
-                .build_provider(client_provider)
+                .build_provider(endpoint_catalog)
                 .await
                 .map_err(|source| MethodCatalogError::ProviderBuild {
                     provider: provider_name.clone(),
                     source,
                 })?;
-
             providers.insert(provider_name, provider);
         }
-
         Ok(Self { providers })
     }
 
@@ -59,6 +47,58 @@ impl MethodCatalog {
 
     pub fn providers(&self) -> impl Iterator<Item = &dyn MethodProvider> {
         self.providers.values().map(|provider| provider.as_ref())
+    }
+
+    pub async fn refresh_provider(
+        &self,
+        provider: &ProviderName,
+    ) -> Result<MethodProviderSnapshot, MethodCatalogError> {
+        let provider_ref =
+            self.providers
+                .get(provider)
+                .ok_or_else(|| MethodCatalogError::UnknownProvider {
+                    provider: provider.clone(),
+                })?;
+        provider_ref
+            .refresh()
+            .await
+            .map_err(|source| MethodCatalogError::ProviderRefresh {
+                provider: provider.clone(),
+                source,
+            })
+    }
+
+    pub async fn handle_method_provider_changed(
+        &self,
+        endpoint: &EndpointName,
+        provider: &ProviderName,
+        _version: Option<String>,
+    ) -> Result<(), MethodCatalogError> {
+        let provider_ref =
+            self.providers
+                .get(provider)
+                .ok_or_else(|| MethodCatalogError::UnknownProvider {
+                    provider: provider.clone(),
+                })?;
+
+        match provider_ref.endpoint() {
+            Some(ep) if ep == endpoint => {}
+            _ => {
+                return Err(MethodCatalogError::ProviderEndpointMismatch {
+                    endpoint: endpoint.clone(),
+                    provider: provider.clone(),
+                });
+            }
+        }
+
+        if !provider_ref.is_watchable() {
+            return Err(MethodCatalogError::ProviderNotWatchable {
+                provider: provider.clone(),
+            });
+        }
+
+        self.refresh_provider(provider).await?;
+        Ok(())
     }
 
     pub fn request_message(

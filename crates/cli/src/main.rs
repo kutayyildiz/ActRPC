@@ -12,7 +12,7 @@ use actrpc_orchestrator::{
     method::{MethodName, ProviderName},
     runtime::{CallExecutionFactory, DefaultOrchestrator},
 };
-use actrpc_transport::DefaultJsonRpcClientProvider;
+use actrpc_transport::{DefaultJsonRpcClientProvider, DefaultJsonRpcSessionProvider};
 use clap::Parser;
 use std::{error::Error, io, sync::Arc};
 
@@ -29,10 +29,15 @@ async fn run() -> Result<(), Box<dyn Error>> {
 
     let config = OrchestratorConfig::from_paths(&args.configs)?;
 
-    let provider = DefaultJsonRpcClientProvider::new();
+    let client_provider = DefaultJsonRpcClientProvider::new();
+    let session_provider = DefaultJsonRpcSessionProvider::new();
 
     let resources = config
-        .build_resources(&provider, Arc::new(CliReviewProvider))
+        .build_resources(
+            &client_provider,
+            &session_provider,
+            Arc::new(CliReviewProvider),
+        )
         .await?;
 
     let orchestrator =

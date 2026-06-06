@@ -2,13 +2,13 @@ use actrpc_core::{
     InterceptorInitialization,
     action::{ActionDescriptor, ActionKind},
 };
-use actrpc_transport::{JsonRpcClient, JsonRpcClientProvider, TransportError};
 
 use crate::{
+    endpoint::EndpointCatalog,
     error::{ActionExecutionError, InterceptorError, OrchestratorError},
     interceptor::{
         ImmutableInterceptorPipeline, Interceptor, InterceptorConfig, InterceptorPolicy,
-        JsonRpcBackedInterceptor, WorkingInterceptorPipeline,
+        InterceptorRuntimeLimitsOverride, JsonRpcBackedInterceptor, WorkingInterceptorPipeline,
         initialization::validate_interceptor_registration,
     },
 };
@@ -22,6 +22,7 @@ pub struct InterceptorCatalogEntry {
     pub name: String,
     pub policy: InterceptorPolicy,
     pub interceptor: Arc<dyn Interceptor>,
+    pub runtime_limits: Option<InterceptorRuntimeLimitsOverride>,
 }
 
 impl core::fmt::Debug for InterceptorCatalogEntry {
@@ -91,6 +92,7 @@ impl InterceptorCatalog {
                     name: config.name,
                     policy: config.policy,
                     interceptor,
+                    runtime_limits: config.runtime,
                 },
             );
         }
@@ -106,29 +108,33 @@ impl InterceptorCatalog {
         ))
     }
 
-    pub async fn build_from_configs<P>(
+    pub async fn build_from_configs(
         configs: Vec<InterceptorConfig>,
         outbound_pipeline: Vec<String>,
         inbound_pipeline: Vec<String>,
         available_actions: &HashMap<ActionKind, ActionDescriptor>,
-        client_provider: &P,
-    ) -> Result<Self, OrchestratorError>
-    where
-        P: JsonRpcClientProvider<
-                Client = Arc<dyn JsonRpcClient<Error = TransportError>>,
-                Error = TransportError,
-            > + Send
-            + Sync,
-    {
+        endpoint_catalog: &EndpointCatalog,
+    ) -> Result<Self, OrchestratorError> {
         let mut interceptors = Vec::with_capacity(configs.len());
 
         for config in configs {
-            let client = client_provider
-                .get_client(&config.target)
-                .await
-                .map_err(OrchestratorError::Transport)?;
+            if let Some(runtime) = config.runtime.as_ref() {
+                runtime
+                    .validate(&config.name)
+                    .map_err(OrchestratorError::Config)?;
+            }
 
-            let interceptor: Arc<dyn Interceptor> = Arc::new(JsonRpcBackedInterceptor::new(client));
+            let endpoint = endpoint_catalog
+                .get(&config.endpoint)
+                .ok_or_else(|| {
+                    OrchestratorError::Interceptor(InterceptorError::UnknownEndpoint {
+                        name: config.endpoint.as_str().to_owned(),
+                    })
+                })?
+                .clone();
+
+            let interceptor: Arc<dyn Interceptor> =
+                Arc::new(JsonRpcBackedInterceptor::new(endpoint));
 
             interceptors.push((config, interceptor));
         }

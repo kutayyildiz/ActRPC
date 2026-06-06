@@ -1,4 +1,4 @@
-use crate::method::ProviderName;
+use crate::{EndpointName, method::ProviderName};
 use std::path::PathBuf;
 
 #[non_exhaustive]
@@ -36,4 +36,10 @@ pub enum ConfigError {
 
     #[error("duplicate interceptor config: {name}")]
     DuplicateInterceptor { name: String },
+
+    #[error("duplicate endpoint config: {name}")]
+    DuplicateEndpoint { name: EndpointName },
+
+    #[error("{config_path} must be greater than 0, got {value}")]
+    InvalidRuntimeLimit { config_path: String, value: u64 },
 }

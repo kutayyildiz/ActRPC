@@ -110,5 +110,6 @@ fn entry(name: &str) -> InterceptorCatalogEntry {
             inbound: HashSet::new(),
         },
         interceptor: Arc::new(DummyInterceptor),
+        runtime_limits: None,
     }
 }

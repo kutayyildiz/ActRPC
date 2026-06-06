@@ -16,4 +16,4 @@ pub use default_orchestrator::DefaultOrchestrator;
 pub use in_flight_message::InFlightMessageState;
 pub use orchestrator_resources::OrchestratorResources;
 pub use phase_runtime::PhaseRuntime;
-pub use transcript::TranscriptState;
+pub use transcript::{TranscriptError, TranscriptState};

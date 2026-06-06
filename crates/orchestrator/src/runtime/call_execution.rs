@@ -1,19 +1,24 @@
 use crate::{
     action::{ActionRegistry, build_builtin_action_registry},
     error::{ActionError, InterceptorError, MethodCallError, OrchestratorError},
-    interceptor::InterceptorCatalogEntry,
+    interceptor::{InterceptorCatalogEntry, ResolvedInterceptorRuntimeLimits},
     method::{MethodName, ProviderName},
-    runtime::{CallExecutionFactory, CallRuntime, PhaseRuntime},
+    runtime::{CallExecutionFactory, CallRuntime, PhaseRuntime, TranscriptError, TranscriptState},
+    transcript::{
+        PROTOCOL_INTERCEPTOR_REQUEST, PROTOCOL_INTERCEPTOR_RESPONSE, PROTOCOL_METHOD_REQUEST,
+        PROTOCOL_METHOD_RESPONSE, TranscriptParticipant, to_transcript_value,
+    },
 };
 use actrpc_core::{
     action::{RequestedActionRecord, ResolvedActionRecord},
-    interception::{InterceptionPhase, InterceptionRequest},
+    interception::{InterceptionPhase, InterceptionRequest, InterceptionResponse},
     json_rpc::{
         JsonRpcErrorResponse, JsonRpcMessage, JsonRpcResponse, JsonRpcSingleMessage, JsonRpcVersion,
     },
     participant::{Participant, ParticipantType},
 };
-use std::sync::Arc;
+use std::{sync::Arc, time::Duration};
+use tokio::time::timeout;
 
 pub struct CallExecution {
     factory: Arc<CallExecutionFactory>,
@@ -37,6 +42,10 @@ impl CallExecution {
         }
     }
 
+    pub fn transcript(&self) -> Arc<TranscriptState> {
+        self.call.transcript.clone()
+    }
+
     pub async fn run(&self) -> Result<JsonRpcMessage, OrchestratorError> {
         let resources = self.factory.resources();
 
@@ -57,12 +66,15 @@ impl CallExecution {
         }
 
         let outbound_message = self.snapshot_message()?;
+        self.record_method_request(&outbound_message)?;
 
         let downstream_response = resources
             .method_catalog
             .send_message(&self.provider, &self.method, outbound_message)
             .await
             .map_err(map_method_call_error)?;
+
+        self.record_method_response(&downstream_response)?;
 
         if !self
             .call
@@ -112,15 +124,30 @@ impl CallExecution {
                     message: source.to_string(),
                 })?;
 
+            let limits = ResolvedInterceptorRuntimeLimits::resolve(
+                &resources.runtime,
+                entry.runtime_limits.as_ref(),
+            );
+
             let mut resolved_action_history: Vec<Vec<ResolvedActionRecord>> = Vec::new();
+            let mut round_index = 0usize;
+            let mut total_actions = 0usize;
 
             loop {
                 let request = self.build_interception_request(&resolved_action_history)?;
 
-                let response = entry
-                    .interceptor
-                    .intercept(&request)
+                self.record_interceptor_request(&entry, &request)?;
+
+                let timeout_duration =
+                    Duration::from_millis(limits.interception_request_timeout_ms);
+                let response = timeout(timeout_duration, entry.interceptor.intercept(&request))
                     .await
+                    .map_err(|_| OrchestratorError::InterceptionRequestTimeout {
+                        interceptor: entry.name.clone(),
+                        phase: phase.phase,
+                        timeout_ms: limits.interception_request_timeout_ms,
+                        config_hint: limits.timeout_config_hint(&entry.name),
+                    })?
                     .map_err(|source| {
                         OrchestratorError::Interceptor(InterceptorError::InvocationFailed {
                             name: entry.name.clone(),
@@ -128,9 +155,31 @@ impl CallExecution {
                         })
                     })?;
 
+                self.record_interceptor_response(&entry, &response)?;
+
                 let should_reinvoke = response.should_reinvoke();
 
                 self.validate_policy(phase.phase, &entry, &response.actions)?;
+
+                let next_total_actions = total_actions
+                    .checked_add(response.actions.len())
+                    .ok_or_else(|| OrchestratorError::MaxActionsPerInterceptionExceeded {
+                        interceptor: entry.name.clone(),
+                        phase: phase.phase,
+                        attempted_actions: usize::MAX,
+                        max_actions_per_interception: limits.max_actions_per_interception,
+                        config_hint: limits.actions_config_hint(&entry.name),
+                    })?;
+                if next_total_actions > limits.max_actions_per_interception {
+                    return Err(OrchestratorError::MaxActionsPerInterceptionExceeded {
+                        interceptor: entry.name.clone(),
+                        phase: phase.phase,
+                        attempted_actions: next_total_actions,
+                        max_actions_per_interception: limits.max_actions_per_interception,
+                        config_hint: limits.actions_config_hint(&entry.name),
+                    });
+                }
+                total_actions = next_total_actions;
 
                 let mut round_actions = Vec::new();
 
@@ -169,10 +218,68 @@ impl CallExecution {
                 if !should_reinvoke {
                     break;
                 }
+
+                round_index += 1;
+                if round_index > limits.max_interception_reinvokes {
+                    return Err(OrchestratorError::MaxInterceptionReinvokesExceeded {
+                        interceptor: entry.name.clone(),
+                        phase: phase.phase,
+                        max_interception_reinvokes: limits.max_interception_reinvokes,
+                        config_hint: limits.reinvokes_config_hint(&entry.name),
+                    });
+                }
             }
         }
 
         Ok(())
+    }
+
+    fn record_interceptor_request(
+        &self,
+        entry: &InterceptorCatalogEntry,
+        request: &InterceptionRequest,
+    ) -> Result<(), OrchestratorError> {
+        let message = to_transcript_value(request).map_err(map_transcript_serialize_error)?;
+        self.call.record_exchange(
+            TranscriptParticipant::orchestrator_main(),
+            TranscriptParticipant::interceptor(entry.name.clone()),
+            PROTOCOL_INTERCEPTOR_REQUEST,
+            message,
+        )
+    }
+
+    fn record_interceptor_response(
+        &self,
+        entry: &InterceptorCatalogEntry,
+        response: &InterceptionResponse,
+    ) -> Result<(), OrchestratorError> {
+        let message = to_transcript_value(response).map_err(map_transcript_serialize_error)?;
+        self.call.record_exchange(
+            TranscriptParticipant::interceptor(entry.name.clone()),
+            TranscriptParticipant::orchestrator_main(),
+            PROTOCOL_INTERCEPTOR_RESPONSE,
+            message,
+        )
+    }
+
+    fn record_method_request(&self, message: &JsonRpcMessage) -> Result<(), OrchestratorError> {
+        let payload = to_transcript_value(message).map_err(map_transcript_serialize_error)?;
+        self.call.record_exchange(
+            TranscriptParticipant::orchestrator_main(),
+            TranscriptParticipant::method_provider(self.provider.as_str()),
+            PROTOCOL_METHOD_REQUEST,
+            payload,
+        )
+    }
+
+    fn record_method_response(&self, message: &JsonRpcMessage) -> Result<(), OrchestratorError> {
+        let payload = to_transcript_value(message).map_err(map_transcript_serialize_error)?;
+        self.call.record_exchange(
+            TranscriptParticipant::method_provider(self.provider.as_str()),
+            TranscriptParticipant::orchestrator_main(),
+            PROTOCOL_METHOD_RESPONSE,
+            payload,
+        )
     }
 
     fn build_interception_request(
@@ -264,4 +371,10 @@ impl CallExecution {
 
 fn map_method_call_error(error: MethodCallError) -> OrchestratorError {
     OrchestratorError::MethodCall(error)
+}
+
+fn map_transcript_serialize_error(error: serde_json::Error) -> OrchestratorError {
+    OrchestratorError::Transcript(TranscriptError::Serialize {
+        message: error.to_string(),
+    })
 }

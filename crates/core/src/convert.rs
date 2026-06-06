@@ -7,7 +7,13 @@ use crate::{
     },
 };
 
-pub const INTERCEPT_METHOD: &str = "intercept";
+pub const ACTRPC_INTERCEPTOR_INITIALIZE_METHOD: &str = "actrpc.interceptor.initialize";
+pub const ACTRPC_INTERCEPTOR_INTERCEPT_METHOD: &str = "actrpc.interceptor.intercept";
+pub const ACTRPC_METHOD_PROVIDER_INITIALIZE_METHOD: &str = "actrpc.method_provider.initialize";
+pub const ACTRPC_METHOD_PROVIDER_REFRESH_METHOD: &str = "actrpc.method_provider.refresh";
+pub const ACTRPC_METHOD_PROVIDER_CHANGED_METHOD: &str = "actrpc.method_provider.changed";
+
+pub const INTERCEPT_METHOD: &str = ACTRPC_INTERCEPTOR_INTERCEPT_METHOD;
 
 impl From<(JsonRpcId, InterceptionRequest)> for JsonRpcRequest {
     fn from((id, req): (JsonRpcId, InterceptionRequest)) -> Self {
@@ -21,7 +27,7 @@ impl From<(JsonRpcId, InterceptionRequest)> for JsonRpcRequest {
         JsonRpcRequest {
             jsonrpc: JsonRpcVersion::V2_0,
             id,
-            method: INTERCEPT_METHOD.to_string(),
+            method: INTERCEPT_METHOD.to_owned(),
             params: Some(JsonRpcParams::Object(map)),
         }
     }

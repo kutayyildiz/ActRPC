@@ -39,7 +39,12 @@ impl TypedActionHandler<GetTranscript> for GetTranscriptHandler {
         Self: 'a,
     {
         Box::pin(async move {
-            let entries = self.transcript.snapshot();
+            let entries = self.transcript.snapshot().map_err(|err| {
+                ActionExecutionError::DependencyFailed {
+                    dependency: "transcript".to_owned(),
+                    message: err.to_string(),
+                }
+            })?;
 
             Ok(ResolvedAction {
                 params: action.params,

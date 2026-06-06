@@ -4,6 +4,7 @@ mod framing;
 mod provider;
 
 pub mod client;
+pub mod session;
 pub mod target;
 
 pub use client::{JsonRpcClient, JsonRpcClientFuture};
@@ -13,4 +14,8 @@ pub use factory::{
     JsonRpcClientFactoryFuture,
 };
 pub use provider::{JsonRpcClientProvider, JsonRpcClientProviderFuture};
+pub use session::{
+    DefaultJsonRpcSessionProvider, JsonRpcSession, JsonRpcSessionEvent, JsonRpcSessionFuture,
+    JsonRpcSessionProvider, JsonRpcSessionProviderFuture,
+};
 pub use target::TransportTarget;

@@ -12,6 +12,8 @@
 - concrete JSON-RPC clients
 - stream framing helpers
 - transport-specific error handling
+- `JsonRpcSession` trait and `JsonRpcSessionProvider`
+- concrete JSON-RPC sessions for stream-capable transports
 
 ## Supported Targets
 
@@ -30,6 +32,21 @@ Concrete client types include:
 - `LocalIpcJsonRpcClient`
 - `HttpJsonRpcClient`
 - `WebSocketJsonRpcClient`
+
+## Sessions
+
+`JsonRpcSession` is implemented for stdio, TCP, local IPC, and WebSocket.
+
+HTTP remains request-response only and does not support sessions.
+
+Concrete session types include:
+
+- `StdioJsonRpcSession`
+- `TcpJsonRpcSession`
+- `LocalIpcJsonRpcSession`
+- `WebSocketJsonRpcSession`
+
+`DefaultJsonRpcSessionProvider` lazily creates and caches sessions per target. It also exposes `clear_cache` and `remove_cached_session`.
 
 ## Framing
 

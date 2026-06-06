@@ -14,6 +14,37 @@ pub enum MethodCatalogError {
         #[source]
         source: MethodProviderBuildError,
     },
+
+    #[error("failed to refresh method provider {provider}: {source}")]
+    ProviderRefresh {
+        provider: ProviderName,
+        #[source]
+        source: MethodProviderRefreshError,
+    },
+
+    #[error("unknown endpoint {endpoint} referenced by method provider {provider}")]
+    UnknownEndpoint {
+        endpoint: crate::endpoint::config::EndpointName,
+        provider: ProviderName,
+    },
+
+    #[error("unknown method provider: {provider}")]
+    UnknownProvider { provider: ProviderName },
+
+    #[error("method provider {provider} does not belong to endpoint {endpoint}")]
+    ProviderEndpointMismatch {
+        endpoint: crate::endpoint::config::EndpointName,
+        provider: ProviderName,
+    },
+
+    #[error("method provider {provider} is not watchable")]
+    ProviderNotWatchable { provider: ProviderName },
+
+    #[error("endpoint {endpoint} does not support session for provider {provider}")]
+    EndpointDoesNotSupportSession {
+        endpoint: crate::endpoint::config::EndpointName,
+        provider: ProviderName,
+    },
 }
 
 #[non_exhaustive]
@@ -49,6 +80,12 @@ pub enum MethodProviderBuildError {
     InvalidConfig {
         provider: ProviderName,
         message: String,
+    },
+
+    #[error("endpoint {endpoint} does not support session for watchable provider {provider}")]
+    EndpointDoesNotSupportSession {
+        endpoint: crate::endpoint::config::EndpointName,
+        provider: ProviderName,
     },
 }
 
@@ -90,6 +127,39 @@ pub enum MethodCallError {
     InvalidParams {
         provider: ProviderName,
         method: MethodName,
+        message: String,
+    },
+}
+
+#[non_exhaustive]
+#[derive(Debug, thiserror::Error)]
+pub enum MethodProviderRefreshError {
+    #[error("provider refresh unsupported for {provider}")]
+    Unsupported { provider: ProviderName },
+
+    #[error("provider refresh transport failed for {provider}: {source}")]
+    Transport {
+        provider: ProviderName,
+        #[source]
+        source: actrpc_transport::TransportError,
+    },
+
+    #[error("provider snapshot mismatch for {provider}: expected {expected}, got {actual}")]
+    SnapshotMismatch {
+        provider: ProviderName,
+        expected: ProviderName,
+        actual: ProviderName,
+    },
+
+    #[error("duplicate method {method} in refreshed snapshot for provider {provider}")]
+    DuplicateMethod {
+        provider: ProviderName,
+        method: MethodName,
+    },
+
+    #[error("failed to decode refresh response for {provider}: {message}")]
+    Decode {
+        provider: ProviderName,
         message: String,
     },
 }

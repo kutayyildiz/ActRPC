@@ -1,6 +1,7 @@
 use crate::{
+    endpoint::EndpointName,
     error::MethodCallError,
-    method::{MethodInfo, MethodName, ProviderName},
+    method::{MethodName, MethodProviderSnapshot, ProviderName},
 };
 use actrpc_core::json_rpc::{JsonRpcMessage, JsonRpcParams};
 use std::{future::Future, pin::Pin};
@@ -10,14 +11,21 @@ pub type MethodProviderFuture<'a, T> = Pin<Box<dyn Future<Output = T> + Send + '
 pub trait MethodProvider: Send + Sync {
     fn name(&self) -> &ProviderName;
 
-    fn description(&self) -> Option<&str>;
+    fn endpoint(&self) -> Option<&EndpointName> {
+        None
+    }
 
-    fn info(&self) -> &serde_json::Value;
+    fn is_watchable(&self) -> bool {
+        false
+    }
 
-    fn methods(&self) -> &[MethodInfo];
+    fn snapshot(&self) -> MethodProviderSnapshot;
 
-    fn method(&self, name: &MethodName) -> Option<&MethodInfo> {
-        self.methods().iter().find(|method| &method.name == name)
+    fn method(&self, name: &MethodName) -> Option<crate::method::MethodInfo> {
+        self.snapshot()
+            .methods
+            .into_iter()
+            .find(|m| &m.name == name)
     }
 
     fn request_message(
@@ -31,6 +39,13 @@ pub trait MethodProvider: Send + Sync {
         method: &'a MethodName,
         message: JsonRpcMessage,
     ) -> MethodProviderFuture<'a, Result<JsonRpcMessage, MethodCallError>>;
+
+    fn refresh<'a>(
+        &'a self,
+    ) -> MethodProviderFuture<
+        'a,
+        Result<MethodProviderSnapshot, crate::error::MethodProviderRefreshError>,
+    >;
 
     fn call<'a>(
         &'a self,

@@ -11,7 +11,7 @@ fn policy_binary_initialize_smoke_test() {
     let response = process.send(json!({
         "jsonrpc": "2.0",
         "id": 1,
-        "method": "initialize",
+        "method": "actrpc.interceptor.initialize",
         "params": null
     }));
 
@@ -37,7 +37,7 @@ fn policy_binary_intercept_reject_call_smoke_test() {
     let response = process.send(json!({
         "jsonrpc": "2.0",
         "id": 2,
-        "method": "intercept",
+        "method": "actrpc.interceptor.intercept",
         "params": {
             "origin": {
                 "kind": "orchestrator",
@@ -79,7 +79,7 @@ fn policy_binary_intercept_no_match_smoke_test() {
     let response = process.send(json!({
         "jsonrpc": "2.0",
         "id": 2,
-        "method": "intercept",
+        "method": "actrpc.interceptor.intercept",
         "params": {
             "origin": {
                 "kind": "orchestrator",
@@ -115,7 +115,7 @@ fn policy_binary_intercept_review_request_smoke_test() {
     let response = process.send(json!({
         "jsonrpc": "2.0",
         "id": 2,
-        "method": "intercept",
+        "method": "actrpc.interceptor.intercept",
         "params": {
             "origin": {
                 "kind": "orchestrator",
@@ -160,7 +160,7 @@ fn policy_binary_intercept_review_approved_effect_smoke_test() {
     let response = process.send(json!({
         "jsonrpc": "2.0",
         "id": 2,
-        "method": "intercept",
+        "method": "actrpc.interceptor.intercept",
         "params": {
             "origin": {
                 "kind": "orchestrator",
@@ -221,7 +221,7 @@ fn policy_binary_intercept_review_denied_effect_smoke_test() {
     let response = process.send(json!({
         "jsonrpc": "2.0",
         "id": 2,
-        "method": "intercept",
+        "method": "actrpc.interceptor.intercept",
         "params": {
             "origin": {
                 "kind": "orchestrator",
@@ -328,7 +328,7 @@ fn policy_binary_intercept_without_params_returns_invalid_params() {
     let response = process.send(json!({
         "jsonrpc": "2.0",
         "id": 8,
-        "method": "intercept"
+        "method": "actrpc.interceptor.intercept"
     }));
 
     assert_eq!(response["jsonrpc"], "2.0");
@@ -385,7 +385,7 @@ impl PolicyProcess {
         self.send(json!({
             "jsonrpc": "2.0",
             "id": 1,
-            "method": "initialize",
+            "method": "actrpc.interceptor.initialize",
             "params": null
         }))
     }

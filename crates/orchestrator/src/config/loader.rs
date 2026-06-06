@@ -63,13 +63,19 @@ impl OrchestratorConfig {
     }
 
     fn merge_append(&mut self, other: OrchestratorConfig) -> Result<(), ConfigError> {
+        self.ensure_no_duplicate_endpoints(&other)?;
         self.ensure_no_duplicate_method_sources(&other)?;
         self.ensure_no_duplicate_interceptors(&other)?;
 
+        self.endpoints.extend(other.endpoints);
         self.methods.extend(other.methods);
         self.interceptors.extend(other.interceptors);
         self.pipelines.outbound.extend(other.pipelines.outbound);
         self.pipelines.inbound.extend(other.pipelines.inbound);
+
+        if let Some(runtime) = other.runtime {
+            self.runtime = Some(runtime);
+        }
 
         Ok(())
     }
@@ -110,6 +116,24 @@ impl OrchestratorConfig {
                 return Err(ConfigError::DuplicateInterceptor {
                     name: config.name.clone(),
                 });
+            }
+        }
+
+        Ok(())
+    }
+
+    fn ensure_no_duplicate_endpoints(&self, other: &OrchestratorConfig) -> Result<(), ConfigError> {
+        let mut names = std::collections::HashSet::new();
+
+        for config in &self.endpoints {
+            names.insert(config.name.clone());
+        }
+
+        for config in &other.endpoints {
+            let name = config.name.clone();
+
+            if !names.insert(name.clone()) {
+                return Err(ConfigError::DuplicateEndpoint { name });
             }
         }
 
