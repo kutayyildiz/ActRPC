@@ -6,9 +6,9 @@ use strum::Display;
 #[serde(rename_all = "lowercase")]
 #[strum(serialize_all = "lowercase")]
 pub enum ParticipantType {
-    User,
+    #[serde(alias = "user")]
+    External,
     Interceptor,
-    Orchestrator,
 }
 
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]

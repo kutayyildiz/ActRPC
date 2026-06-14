@@ -1,5 +1,5 @@
 use crate::{
-    action::{ActionHandlerFuture, TypedActionHandler},
+    action::{ActionHandlerFuture, ActionInvocationContext, TypedActionHandler},
     error::ActionExecutionError,
     runtime::CurrentCallRejection,
 };
@@ -41,6 +41,7 @@ impl TypedActionHandler<RejectCall> for RejectCallHandler {
         &'a self,
         _request: &'a InterceptionRequest,
         action: RequestedAction<RejectCall>,
+        _ctx: &'a ActionInvocationContext,
     ) -> ActionHandlerFuture<'a, Result<ResolvedAction<RejectCall>, ActionExecutionError>>
     where
         Self: 'a,

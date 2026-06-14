@@ -1,9 +1,10 @@
-use crate::transcript::{CallId, TranscriptEntry, TranscriptEntryInput, TranscriptEntryView};
+use crate::{
+    runtime::execution_tree::ExecutionTreeState,
+    transcript::{TranscriptEntry, TranscriptEntryInput, TranscriptEntryView},
+};
+use actrpc_core::CallId;
 use std::{
-    sync::{
-        RwLock,
-        atomic::{AtomicU64, Ordering},
-    },
+    sync::RwLock,
     time::{SystemTime, UNIX_EPOCH},
 };
 use thiserror::Error;
@@ -24,10 +25,19 @@ struct TranscriptInner {
     entries: Vec<TranscriptEntry>,
 }
 
-#[derive(Debug, Default)]
+#[derive(Debug)]
 pub struct TranscriptState {
-    next_call_id: AtomicU64,
     inner: RwLock<TranscriptInner>,
+    execution_tree: ExecutionTreeState,
+}
+
+impl Default for TranscriptState {
+    fn default() -> Self {
+        Self {
+            inner: RwLock::new(TranscriptInner::default()),
+            execution_tree: ExecutionTreeState::new(),
+        }
+    }
 }
 
 impl TranscriptState {
@@ -35,8 +45,12 @@ impl TranscriptState {
         Self::default()
     }
 
+    pub fn execution_tree(&self) -> &ExecutionTreeState {
+        &self.execution_tree
+    }
+
     pub fn allocate_call_id(&self) -> CallId {
-        CallId(self.next_call_id.fetch_add(1, Ordering::Relaxed) + 1)
+        CallId::new()
     }
 
     pub fn append(&self, input: TranscriptEntryInput) -> Result<(), TranscriptError> {

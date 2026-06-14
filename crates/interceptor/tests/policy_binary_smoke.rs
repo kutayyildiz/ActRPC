@@ -1,4 +1,21 @@
 use serde_json::{Value, json};
+
+fn intercept_params(message: Value, resolved_action_history: Value) -> Value {
+    json!({
+        "origin": {
+            "kind": "external",
+            "id": "caller"
+        },
+        "target": {
+            "provider": "test",
+            "method": message.get("method").and_then(Value::as_str).unwrap_or("unknown")
+        },
+        "message": message,
+        "call_id": "550e8400-e29b-41d4-a716-446655440000",
+        "interception_id": "6ba7b810-9dad-11d1-80b4-00c04fd430c8",
+        "resolved_action_history": resolved_action_history
+    })
+}
 use std::{
     io::{BufRead, BufReader, Write},
     process::{Child, ChildStdin, ChildStdout, Command, Stdio},
@@ -38,21 +55,17 @@ fn policy_binary_intercept_reject_call_smoke_test() {
         "jsonrpc": "2.0",
         "id": 2,
         "method": "actrpc.interceptor.intercept",
-        "params": {
-            "origin": {
-                "kind": "orchestrator",
-                "id": "orchestrator"
-            },
-            "message": {
+        "params": intercept_params(
+            json!({
                 "jsonrpc": "2.0",
                 "id": 1,
                 "method": "write_file",
                 "params": {
                     "path": "/etc/passwd"
                 }
-            },
-            "resolved_action_history": []
-        }
+            }),
+            json!([]),
+        )
     }));
 
     assert_eq!(response["jsonrpc"], "2.0");
@@ -80,21 +93,17 @@ fn policy_binary_intercept_no_match_smoke_test() {
         "jsonrpc": "2.0",
         "id": 2,
         "method": "actrpc.interceptor.intercept",
-        "params": {
-            "origin": {
-                "kind": "orchestrator",
-                "id": "orchestrator"
-            },
-            "message": {
+        "params": intercept_params(
+            json!({
                 "jsonrpc": "2.0",
                 "id": 1,
                 "method": "write_file",
                 "params": {
                     "path": "/tmp/file.txt"
                 }
-            },
-            "resolved_action_history": []
-        }
+            }),
+            json!([]),
+        )
     }));
 
     assert_eq!(response["jsonrpc"], "2.0");
@@ -116,21 +125,17 @@ fn policy_binary_intercept_review_request_smoke_test() {
         "jsonrpc": "2.0",
         "id": 2,
         "method": "actrpc.interceptor.intercept",
-        "params": {
-            "origin": {
-                "kind": "orchestrator",
-                "id": "orchestrator"
-            },
-            "message": {
+        "params": intercept_params(
+            json!({
                 "jsonrpc": "2.0",
                 "id": 1,
                 "method": "write_file",
                 "params": {
                     "path": "/home/mortal/file.txt"
                 }
-            },
-            "resolved_action_history": []
-        }
+            }),
+            json!([]),
+        )
     }));
 
     assert_eq!(response["jsonrpc"], "2.0");
@@ -161,20 +166,16 @@ fn policy_binary_intercept_review_approved_effect_smoke_test() {
         "jsonrpc": "2.0",
         "id": 2,
         "method": "actrpc.interceptor.intercept",
-        "params": {
-            "origin": {
-                "kind": "orchestrator",
-                "id": "orchestrator"
-            },
-            "message": {
+        "params": intercept_params(
+            json!({
                 "jsonrpc": "2.0",
                 "id": 1,
                 "method": "write_file",
                 "params": {
                     "path": "/home/mortal/file.txt"
                 }
-            },
-            "resolved_action_history": [
+            }),
+            json!([
                 [
                     {
                         "kind": "request_review",
@@ -191,8 +192,8 @@ fn policy_binary_intercept_review_approved_effect_smoke_test() {
                         }
                     }
                 ]
-            ]
-        }
+            ]),
+        )
     }));
 
     assert_eq!(response["jsonrpc"], "2.0");
@@ -222,20 +223,16 @@ fn policy_binary_intercept_review_denied_effect_smoke_test() {
         "jsonrpc": "2.0",
         "id": 2,
         "method": "actrpc.interceptor.intercept",
-        "params": {
-            "origin": {
-                "kind": "orchestrator",
-                "id": "orchestrator"
-            },
-            "message": {
+        "params": intercept_params(
+            json!({
                 "jsonrpc": "2.0",
                 "id": 1,
                 "method": "write_file",
                 "params": {
                     "path": "/home/mortal/file.txt"
                 }
-            },
-            "resolved_action_history": [
+            }),
+            json!([
                 [
                     {
                         "kind": "request_review",
@@ -252,8 +249,8 @@ fn policy_binary_intercept_review_denied_effect_smoke_test() {
                         }
                     }
                 ]
-            ]
-        }
+            ]),
+        )
     }));
 
     assert_eq!(response["jsonrpc"], "2.0");

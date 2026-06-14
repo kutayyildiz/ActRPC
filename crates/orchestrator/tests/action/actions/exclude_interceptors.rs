@@ -10,7 +10,7 @@ use actrpc_orchestrator::{
 use serde_json::json;
 use std::sync::Arc;
 
-use super::super::helpers::{action_record, dummy_request};
+use super::super::helpers::{action_record, dummy_request, invocation_context};
 
 #[tokio::test]
 async fn exclude_interceptors_removes_matching_names_and_deduplicates_params() {
@@ -32,7 +32,7 @@ async fn exclude_interceptors_removes_matching_names_and_deduplicates_params() {
     let resolved = registry
         .get(&ExcludeInterceptors::action_kind())
         .unwrap()
-        .handle(&dummy_request(), action)
+        .handle(&dummy_request(), action, &invocation_context("test"))
         .await
         .unwrap();
 
@@ -56,7 +56,7 @@ async fn exclude_interceptors_rejects_empty_names() {
     let err = registry
         .get(&ExcludeInterceptors::action_kind())
         .unwrap()
-        .handle(&dummy_request(), action)
+        .handle(&dummy_request(), action, &invocation_context("test"))
         .await
         .unwrap_err();
 
@@ -84,7 +84,7 @@ async fn exclude_interceptors_rejects_blank_name() {
     let err = registry
         .get(&ExcludeInterceptors::action_kind())
         .unwrap()
-        .handle(&dummy_request(), action)
+        .handle(&dummy_request(), action, &invocation_context("test"))
         .await
         .unwrap_err();
 

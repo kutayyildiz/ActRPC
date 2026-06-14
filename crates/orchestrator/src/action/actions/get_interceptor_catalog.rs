@@ -1,5 +1,5 @@
 use crate::{
-    action::{ActionHandlerFuture, TypedActionHandler},
+    action::{ActionHandlerFuture, ActionInvocationContext, TypedActionHandler},
     error::ActionExecutionError,
     interceptor::{InterceptorCatalog, InterceptorPolicy},
 };
@@ -41,6 +41,7 @@ impl TypedActionHandler<GetInterceptorCatalog> for GetInterceptorCatalogHandler 
         &'a self,
         _request: &'a InterceptionRequest,
         action: RequestedAction<GetInterceptorCatalog>,
+        _ctx: &'a ActionInvocationContext,
     ) -> ActionHandlerFuture<'a, Result<ResolvedAction<GetInterceptorCatalog>, ActionExecutionError>>
     where
         Self: 'a,

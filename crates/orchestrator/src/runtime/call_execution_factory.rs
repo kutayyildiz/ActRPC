@@ -1,9 +1,12 @@
 use crate::{
     error::OrchestratorError,
-    method::{MethodName, ProviderName},
+    method::{MethodName, ProviderName, method_target_from_names},
     runtime::{CallExecution, CallRuntime, OrchestratorResources},
 };
-use actrpc_core::json_rpc::{JsonRpcMessage, JsonRpcParams};
+use actrpc_core::{
+    json_rpc::{JsonRpcMessage, JsonRpcParams},
+    participant::{Participant, ParticipantType},
+};
 use std::sync::Arc;
 
 pub struct CallExecutionFactory {
@@ -24,6 +27,7 @@ impl CallExecutionFactory {
         provider: ProviderName,
         method: MethodName,
         params: Option<JsonRpcParams>,
+        caller_id: impl Into<String>,
     ) -> Result<CallExecution, OrchestratorError> {
         let message = self
             .resources
@@ -32,7 +36,19 @@ impl CallExecutionFactory {
 
         let transcript = Arc::new(crate::runtime::TranscriptState::new());
         let call_id = transcript.allocate_call_id();
-        let call = Arc::new(CallRuntime::root(message, transcript, call_id));
+        transcript
+            .execution_tree()
+            .register_root(call_id)
+            .map_err(|message| OrchestratorError::Internal { message })?;
+
+        let origin = Participant {
+            kind: ParticipantType::External,
+            id: caller_id.into(),
+        };
+        let target = method_target_from_names(&provider, &method);
+        let call = Arc::new(CallRuntime::root(
+            message, transcript, call_id, origin, target,
+        ));
 
         Ok(CallExecution::new(self.clone(), call, provider, method))
     }
@@ -43,6 +59,7 @@ impl CallExecutionFactory {
         method: MethodName,
         params: Option<JsonRpcParams>,
         parent: &CallRuntime,
+        child_origin: Participant,
     ) -> Result<CallExecution, OrchestratorError> {
         let child_depth = parent.depth() + 1;
         if child_depth > self.resources.runtime.max_call_depth {
@@ -58,12 +75,22 @@ impl CallExecutionFactory {
             .request_message(&provider, &method, params)?;
 
         let call_id = parent.transcript.allocate_call_id();
+        parent
+            .transcript
+            .execution_tree()
+            .register_child(call_id, parent.call_id())
+            .map_err(|message| OrchestratorError::Internal { message })?;
+
+        let target = method_target_from_names(&provider, &method);
         let call = Arc::new(CallRuntime::nested(
             message,
             parent.transcript.clone(),
             call_id,
             parent.call_id(),
+            parent.root_call_id(),
             child_depth,
+            child_origin,
+            target,
         ));
 
         Ok(CallExecution::new(self.clone(), call, provider, method))
@@ -74,8 +101,9 @@ impl CallExecutionFactory {
         provider: ProviderName,
         method: MethodName,
         params: Option<JsonRpcParams>,
+        caller_id: impl Into<String>,
     ) -> Result<JsonRpcMessage, OrchestratorError> {
-        let execution = self.create_root(provider, method, params)?;
+        let execution = self.create_root(provider, method, params, caller_id)?;
         execution.run().await
     }
 
@@ -85,8 +113,9 @@ impl CallExecutionFactory {
         method: MethodName,
         params: Option<JsonRpcParams>,
         parent: &CallRuntime,
+        child_origin: Participant,
     ) -> Result<JsonRpcMessage, OrchestratorError> {
-        let execution = self.create_piped(provider, method, params, parent)?;
+        let execution = self.create_piped(provider, method, params, parent, child_origin)?;
         execution.run().await
     }
 }

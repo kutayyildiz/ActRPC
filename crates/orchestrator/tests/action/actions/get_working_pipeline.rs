@@ -8,7 +8,7 @@ use actrpc_orchestrator::{
 };
 use std::sync::Arc;
 
-use super::super::helpers::{dummy_request, no_params_action_record};
+use super::super::helpers::{dummy_request, invocation_context, no_params_action_record};
 
 #[tokio::test]
 async fn get_working_pipeline_returns_current_pipeline_snapshot() {
@@ -28,6 +28,7 @@ async fn get_working_pipeline_returns_current_pipeline_snapshot() {
         .handle(
             &dummy_request(),
             no_params_action_record::<GetWorkingPipeline>(),
+            &invocation_context("test"),
         )
         .await
         .unwrap();

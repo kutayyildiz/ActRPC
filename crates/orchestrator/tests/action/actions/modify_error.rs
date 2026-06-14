@@ -14,7 +14,7 @@ use serde_json::json;
 use std::sync::Arc;
 
 use super::super::helpers::{
-    action_record, dummy_request, error_message, json_error, success_message,
+    action_record, dummy_request, error_message, invocation_context, json_error, success_message,
 };
 
 #[tokio::test]
@@ -40,7 +40,7 @@ async fn modify_error_replaces_error_response_error() {
     let resolved = registry
         .get(&ModifyError::action_kind())
         .unwrap()
-        .handle(&dummy_request(), action)
+        .handle(&dummy_request(), action, &invocation_context("test"))
         .await
         .unwrap();
 
@@ -81,7 +81,7 @@ async fn modify_error_rejects_non_error_response() {
     let err = registry
         .get(&ModifyError::action_kind())
         .unwrap()
-        .handle(&dummy_request(), action)
+        .handle(&dummy_request(), action, &invocation_context("test"))
         .await
         .unwrap_err();
 
@@ -112,7 +112,7 @@ async fn modify_error_rejects_missing_in_flight_message() {
     let err = registry
         .get(&ModifyError::action_kind())
         .unwrap()
-        .handle(&dummy_request(), action)
+        .handle(&dummy_request(), action, &invocation_context("test"))
         .await
         .unwrap_err();
 

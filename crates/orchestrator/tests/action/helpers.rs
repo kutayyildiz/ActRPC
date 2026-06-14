@@ -1,4 +1,5 @@
 use actrpc_core::{
+    CallId, InterceptionId, MethodTarget,
     action::{ActionSpec, RequestedActionRecord},
     interception::InterceptionRequest,
     json_rpc::{
@@ -33,11 +34,25 @@ where
 pub(super) fn dummy_request() -> InterceptionRequest {
     InterceptionRequest {
         origin: Participant {
-            kind: ParticipantType::Orchestrator,
+            kind: ParticipantType::External,
             id: "test".to_owned(),
         },
+        target: MethodTarget {
+            provider: "test".to_owned(),
+            method: "test".to_owned(),
+        },
         message: request_message("test", None),
+        call_id: CallId::new(),
+        interception_id: InterceptionId::new(),
         resolved_action_history: vec![],
+    }
+}
+
+pub(super) fn invocation_context(
+    name: &str,
+) -> actrpc_orchestrator::action::ActionInvocationContext {
+    actrpc_orchestrator::action::ActionInvocationContext {
+        interceptor_name: name.to_owned(),
     }
 }
 

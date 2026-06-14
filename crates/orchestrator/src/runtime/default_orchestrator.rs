@@ -22,7 +22,9 @@ impl DefaultOrchestrator {
         method: MethodName,
         params: Option<JsonRpcParams>,
     ) -> Result<JsonRpcMessage, OrchestratorError> {
-        self.factory.run_root(provider, method, params).await
+        self.factory
+            .run_root(provider, method, params, "caller")
+            .await
     }
 }
 

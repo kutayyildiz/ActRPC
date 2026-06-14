@@ -1,8 +1,10 @@
 use actrpc_core::{
+    MethodTarget,
     action::ActionSpec,
     json_rpc::{
         JsonRpcMessage, JsonRpcParams, JsonRpcRequest, JsonRpcSingleMessage, JsonRpcVersion,
     },
+    participant::{Participant, ParticipantType},
 };
 use actrpc_orchestrator::{
     action::{
@@ -21,8 +23,30 @@ use serde_json::json;
 use std::{collections::HashMap, sync::Arc};
 
 use super::super::helpers::{
-    action_record, dummy_request, error_message, json_error, request_message, success_message,
+    action_record, dummy_request, error_message, invocation_context, json_error, request_message,
+    success_message,
 };
+
+fn test_parent_call(
+    transcript: actrpc_orchestrator::runtime::TranscriptState,
+    call_id: actrpc_core::CallId,
+) -> Arc<CallRuntime> {
+    let transcript = Arc::new(transcript);
+    transcript.execution_tree().register_root(call_id).unwrap();
+    Arc::new(CallRuntime::root(
+        request_message("parent", None),
+        transcript,
+        call_id,
+        Participant {
+            kind: ParticipantType::External,
+            id: "caller".to_owned(),
+        },
+        MethodTarget {
+            provider: "test_provider".to_owned(),
+            method: "parent".to_owned(),
+        },
+    ))
+}
 
 struct StaticMethodProvider {
     name: ProviderName,
@@ -112,13 +136,9 @@ async fn call_method_returns_success_result() {
         "value": 42
     })));
 
-    let transcript = Arc::new(actrpc_orchestrator::runtime::TranscriptState::new());
+    let transcript = actrpc_orchestrator::runtime::TranscriptState::new();
     let call_id = transcript.allocate_call_id();
-    let parent_call = Arc::new(CallRuntime::root(
-        request_message("parent", None),
-        transcript,
-        call_id,
-    ));
+    let parent_call = test_parent_call(transcript, call_id);
 
     let mut registry = ActionRegistry::new();
     registry
@@ -136,7 +156,7 @@ async fn call_method_returns_success_result() {
     let resolved = registry
         .get(&CallMethod::action_kind())
         .unwrap()
-        .handle(&dummy_request(), action)
+        .handle(&dummy_request(), action, &invocation_context("test"))
         .await
         .unwrap();
 
@@ -153,13 +173,9 @@ async fn call_method_returns_success_result() {
 async fn call_method_maps_json_rpc_error_response_to_dependency_failed() {
     let factory = test_factory(error_message(json_error(-32000, "downstream failed")));
 
-    let transcript = Arc::new(actrpc_orchestrator::runtime::TranscriptState::new());
+    let transcript = actrpc_orchestrator::runtime::TranscriptState::new();
     let call_id = transcript.allocate_call_id();
-    let parent_call = Arc::new(CallRuntime::root(
-        request_message("parent", None),
-        transcript,
-        call_id,
-    ));
+    let parent_call = test_parent_call(transcript, call_id);
 
     let mut registry = ActionRegistry::new();
     registry
@@ -174,7 +190,7 @@ async fn call_method_maps_json_rpc_error_response_to_dependency_failed() {
     let err = registry
         .get(&CallMethod::action_kind())
         .unwrap()
-        .handle(&dummy_request(), action)
+        .handle(&dummy_request(), action, &invocation_context("test"))
         .await
         .unwrap_err();
 
@@ -200,13 +216,9 @@ async fn call_method_maps_missing_provider_to_call_execution_dependency_failed()
     );
 
     let factory = Arc::new(CallExecutionFactory::new(Arc::new(resources)));
-    let transcript = Arc::new(actrpc_orchestrator::runtime::TranscriptState::new());
+    let transcript = actrpc_orchestrator::runtime::TranscriptState::new();
     let call_id = transcript.allocate_call_id();
-    let parent_call = Arc::new(CallRuntime::root(
-        request_message("parent", None),
-        transcript,
-        call_id,
-    ));
+    let parent_call = test_parent_call(transcript, call_id);
 
     let mut registry = ActionRegistry::new();
     registry
@@ -221,7 +233,7 @@ async fn call_method_maps_missing_provider_to_call_execution_dependency_failed()
     let err = registry
         .get(&CallMethod::action_kind())
         .unwrap()
-        .handle(&dummy_request(), action)
+        .handle(&dummy_request(), action, &invocation_context("test"))
         .await
         .unwrap_err();
 

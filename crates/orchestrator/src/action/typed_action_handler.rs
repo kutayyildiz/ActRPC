@@ -1,4 +1,7 @@
-use crate::{action::ActionHandlerFuture, error::ActionExecutionError};
+use crate::{
+    action::{ActionHandlerFuture, ActionInvocationContext},
+    error::ActionExecutionError,
+};
 use actrpc_core::{
     action::{ActionSpec, RequestedAction, ResolvedAction},
     interception::InterceptionRequest,
@@ -16,6 +19,7 @@ where
         &'a self,
         request: &'a InterceptionRequest,
         action: RequestedAction<A>,
+        ctx: &'a ActionInvocationContext,
     ) -> ActionHandlerFuture<'a, TypedActionHandlerResult<A>>
     where
         Self: 'a;

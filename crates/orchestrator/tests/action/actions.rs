@@ -14,6 +14,8 @@ mod modify_error;
 mod modify_params;
 #[path = "actions/modify_result.rs"]
 mod modify_result;
+#[path = "actions/query_execution_context.rs"]
+mod query_execution_context;
 #[path = "actions/reject_call.rs"]
 mod reject_call;
 #[path = "actions/request_review.rs"]

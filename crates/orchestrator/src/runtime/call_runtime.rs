@@ -1,9 +1,9 @@
 use crate::{
     error::OrchestratorError,
     runtime::{CurrentCallRejection, InFlightMessageState, TranscriptState},
-    transcript::{CallId, TranscriptEntryInput, TranscriptParticipant},
+    transcript::{TranscriptEntryInput, TranscriptParticipant},
 };
-use actrpc_core::json_rpc::JsonRpcMessage;
+use actrpc_core::{CallId, MethodTarget, json_rpc::JsonRpcMessage, participant::Participant};
 use std::sync::Arc;
 
 #[derive(Debug)]
@@ -13,7 +13,10 @@ pub struct CallRuntime {
     pub transcript: Arc<TranscriptState>,
     call_id: CallId,
     parent_call_id: Option<CallId>,
+    root_call_id: CallId,
     depth: usize,
+    origin: Participant,
+    target: MethodTarget,
 }
 
 impl CallRuntime {
@@ -21,8 +24,12 @@ impl CallRuntime {
         message: JsonRpcMessage,
         transcript: Arc<TranscriptState>,
         call_id: CallId,
+        origin: Participant,
+        target: MethodTarget,
     ) -> Self {
-        Self::new(message, transcript, call_id, None, 0)
+        Self::new(
+            message, transcript, call_id, None, call_id, 0, origin, target,
+        )
     }
 
     pub fn nested(
@@ -30,9 +37,21 @@ impl CallRuntime {
         transcript: Arc<TranscriptState>,
         call_id: CallId,
         parent_call_id: CallId,
+        root_call_id: CallId,
         depth: usize,
+        origin: Participant,
+        target: MethodTarget,
     ) -> Self {
-        Self::new(message, transcript, call_id, Some(parent_call_id), depth)
+        Self::new(
+            message,
+            transcript,
+            call_id,
+            Some(parent_call_id),
+            root_call_id,
+            depth,
+            origin,
+            target,
+        )
     }
 
     fn new(
@@ -40,7 +59,10 @@ impl CallRuntime {
         transcript: Arc<TranscriptState>,
         call_id: CallId,
         parent_call_id: Option<CallId>,
+        root_call_id: CallId,
         depth: usize,
+        origin: Participant,
+        target: MethodTarget,
     ) -> Self {
         let in_flight_message = Arc::new(InFlightMessageState::new());
         in_flight_message.set_message(message);
@@ -51,7 +73,10 @@ impl CallRuntime {
             transcript,
             call_id,
             parent_call_id,
+            root_call_id,
             depth,
+            origin,
+            target,
         }
     }
 
@@ -63,8 +88,20 @@ impl CallRuntime {
         self.parent_call_id
     }
 
+    pub fn root_call_id(&self) -> CallId {
+        self.root_call_id
+    }
+
     pub fn depth(&self) -> usize {
         self.depth
+    }
+
+    pub fn origin(&self) -> &Participant {
+        &self.origin
+    }
+
+    pub fn target(&self) -> &MethodTarget {
+        &self.target
     }
 
     pub fn record_exchange(

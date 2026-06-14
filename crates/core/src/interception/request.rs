@@ -1,13 +1,17 @@
 use crate::{
-    action::ResolvedActionRecord, error::ProtocolError, interception::InterceptionPhase,
-    json_rpc::JsonRpcMessage, participant::Participant,
+    action::ResolvedActionRecord, call_id::CallId, error::ProtocolError,
+    interception::InterceptionPhase, interception_id::InterceptionId, json_rpc::JsonRpcMessage,
+    method_target::MethodTarget, participant::Participant,
 };
 use serde::{Deserialize, Serialize};
 
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
 pub struct InterceptionRequest {
     pub origin: Participant,
+    pub target: MethodTarget,
     pub message: JsonRpcMessage,
+    pub call_id: CallId,
+    pub interception_id: InterceptionId,
 
     #[serde(default, skip_serializing_if = "Vec::is_empty")]
     pub resolved_action_history: Vec<Vec<ResolvedActionRecord>>,

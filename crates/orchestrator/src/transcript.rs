@@ -7,11 +7,8 @@ pub use protocol::{
     PROTOCOL_METHOD_RESPONSE,
 };
 
-use actrpc_core::descriptor::traits::DescribeValue;
+use actrpc_core::{CallId, descriptor::traits::DescribeValue};
 use serde::{Deserialize, Serialize};
-
-#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, Serialize, Deserialize)]
-pub struct CallId(pub u64);
 
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
 pub struct TranscriptEntry {
@@ -41,8 +38,8 @@ pub struct TranscriptEntryInput {
 pub struct TranscriptEntryView {
     pub seq: u64,
     pub ts_ms: u64,
-    pub call_id: u64,
-    pub parent_call_id: Option<u64>,
+    pub call_id: CallId,
+    pub parent_call_id: Option<CallId>,
     pub depth: usize,
     pub from: String,
     pub to: String,
@@ -55,8 +52,8 @@ impl From<TranscriptEntry> for TranscriptEntryView {
         Self {
             seq: value.seq,
             ts_ms: value.ts_ms,
-            call_id: value.call_id.0,
-            parent_call_id: value.parent_call_id.map(|id| id.0),
+            call_id: value.call_id,
+            parent_call_id: value.parent_call_id,
             depth: value.depth,
             from: value.from.to_string(),
             to: value.to.to_string(),
@@ -90,13 +87,13 @@ impl DescribeValue for TranscriptEntryView {
                 },
                 FieldDescriptor {
                     name: "call_id".to_owned(),
-                    ty: ValueDescriptor::Primitive(PrimitiveDescriptor::Integer),
+                    ty: ValueDescriptor::Primitive(PrimitiveDescriptor::String),
                 },
                 FieldDescriptor {
                     name: "parent_call_id".to_owned(),
                     ty: ValueDescriptor::OneOf(vec![
                         ValueDescriptor::Primitive(PrimitiveDescriptor::Null),
-                        ValueDescriptor::Primitive(PrimitiveDescriptor::Integer),
+                        ValueDescriptor::Primitive(PrimitiveDescriptor::String),
                     ]),
                 },
                 FieldDescriptor {

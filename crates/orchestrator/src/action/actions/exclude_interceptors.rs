@@ -1,5 +1,5 @@
 use crate::{
-    action::{ActionHandlerFuture, TypedActionHandler},
+    action::{ActionHandlerFuture, ActionInvocationContext, TypedActionHandler},
     error::ActionExecutionError,
     interceptor::WorkingInterceptorPipeline,
 };
@@ -40,6 +40,7 @@ impl TypedActionHandler<ExcludeInterceptors> for ExcludeInterceptorsHandler {
         &'a self,
         _request: &'a InterceptionRequest,
         action: RequestedAction<ExcludeInterceptors>,
+        _ctx: &'a ActionInvocationContext,
     ) -> ActionHandlerFuture<'a, Result<ResolvedAction<ExcludeInterceptors>, ActionExecutionError>>
     where
         Self: 'a,

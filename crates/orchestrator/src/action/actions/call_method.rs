@@ -1,5 +1,5 @@
 use crate::{
-    action::{ActionHandlerFuture, TypedActionHandler},
+    action::{ActionHandlerFuture, ActionInvocationContext, TypedActionHandler},
     error::{ActionExecutionError, OrchestratorError},
     method::{MethodName, ProviderName},
     runtime::{CallExecutionFactory, CallRuntime},
@@ -9,6 +9,7 @@ use actrpc_core::{
     action::{ActionSpec, RequestedAction, ResolvedAction},
     interception::InterceptionRequest,
     json_rpc::{JsonRpcMessage, JsonRpcParams, JsonRpcResponse, JsonRpcSingleMessage},
+    participant::{Participant, ParticipantType},
 };
 use serde::{Deserialize, Serialize};
 use std::sync::Arc;
@@ -51,11 +52,17 @@ impl TypedActionHandler<CallMethod> for CallMethodHandler {
         &'a self,
         _request: &'a InterceptionRequest,
         action: RequestedAction<CallMethod>,
+        ctx: &'a ActionInvocationContext,
     ) -> ActionHandlerFuture<'a, Result<ResolvedAction<CallMethod>, ActionExecutionError>>
     where
         Self: 'a,
     {
         Box::pin(async move {
+            let child_origin = Participant {
+                kind: ParticipantType::Interceptor,
+                id: ctx.interceptor_name.clone(),
+            };
+
             let response = self
                 .factory
                 .run_piped(
@@ -63,6 +70,7 @@ impl TypedActionHandler<CallMethod> for CallMethodHandler {
                     action.params.method.clone(),
                     action.params.params.clone(),
                     self.parent_call.as_ref(),
+                    child_origin,
                 )
                 .await
                 .map_err(map_orchestrator_error)?;

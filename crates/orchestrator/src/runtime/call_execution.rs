@@ -1,3 +1,4 @@
+use crate::action::ActionInvocationContext;
 use crate::{
     action::{ActionRegistry, build_builtin_action_registry},
     error::{ActionError, InterceptorError, MethodCallError, OrchestratorError},
@@ -10,12 +11,12 @@ use crate::{
     },
 };
 use actrpc_core::{
+    InterceptionId,
     action::{RequestedActionRecord, ResolvedActionRecord},
     interception::{InterceptionPhase, InterceptionRequest, InterceptionResponse},
     json_rpc::{
         JsonRpcErrorResponse, JsonRpcMessage, JsonRpcResponse, JsonRpcSingleMessage, JsonRpcVersion,
     },
-    participant::{Participant, ParticipantType},
 };
 use std::{sync::Arc, time::Duration};
 use tokio::time::timeout;
@@ -129,12 +130,19 @@ impl CallExecution {
                 entry.runtime_limits.as_ref(),
             );
 
+            let interception_id = self
+                .call
+                .transcript
+                .execution_tree()
+                .allocate_interception_id();
+
             let mut resolved_action_history: Vec<Vec<ResolvedActionRecord>> = Vec::new();
             let mut round_index = 0usize;
             let mut total_actions = 0usize;
 
             loop {
-                let request = self.build_interception_request(&resolved_action_history)?;
+                let request =
+                    self.build_interception_request(&resolved_action_history, interception_id)?;
 
                 self.record_interceptor_request(&entry, &request)?;
 
@@ -183,6 +191,10 @@ impl CallExecution {
 
                 let mut round_actions = Vec::new();
 
+                let invocation_ctx = ActionInvocationContext {
+                    interceptor_name: entry.name.clone(),
+                };
+
                 for requested_action in response.actions {
                     let action_kind = requested_action.kind.clone();
 
@@ -192,17 +204,16 @@ impl CallExecution {
                         })
                     })?;
 
-                    let resolved =
-                        handler
-                            .handle(&request, requested_action)
-                            .await
-                            .map_err(|source| {
-                                OrchestratorError::Action(ActionError::HandlerFailed {
-                                    interceptor: entry.name.clone(),
-                                    action: action_kind,
-                                    source,
-                                })
-                            })?;
+                    let resolved = handler
+                        .handle(&request, requested_action, &invocation_ctx)
+                        .await
+                        .map_err(|source| {
+                            OrchestratorError::Action(ActionError::HandlerFailed {
+                                interceptor: entry.name.clone(),
+                                action: action_kind,
+                                source,
+                            })
+                        })?;
 
                     round_actions.push(resolved);
 
@@ -285,13 +296,14 @@ impl CallExecution {
     fn build_interception_request(
         &self,
         resolved_action_history: &[Vec<ResolvedActionRecord>],
+        interception_id: InterceptionId,
     ) -> Result<InterceptionRequest, OrchestratorError> {
         Ok(InterceptionRequest {
-            origin: Participant {
-                kind: ParticipantType::Orchestrator,
-                id: "orchestrator".to_owned(),
-            },
+            origin: self.call.origin().clone(),
+            target: self.call.target().clone(),
             message: self.snapshot_message()?,
+            call_id: self.call.call_id(),
+            interception_id,
             resolved_action_history: resolved_action_history.to_vec(),
         })
     }

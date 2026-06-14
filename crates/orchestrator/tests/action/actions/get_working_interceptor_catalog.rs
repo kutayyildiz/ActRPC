@@ -21,7 +21,7 @@ use std::{
     sync::Arc,
 };
 
-use super::helpers::{dummy_request, no_params_action_record};
+use super::helpers::{invocation_context, dummy_request, no_params_action_record};
 
 struct DummyInterceptor;
 
@@ -78,6 +78,7 @@ async fn get_working_interceptor_catalog_returns_only_pipeline_entries_in_pipeli
         .handle(
             &dummy_request(),
             no_params_action_record::<GetWorkingInterceptorCatalog>(),
+            &invocation_context("test"),
         )
         .await
         .unwrap();
@@ -116,6 +117,7 @@ async fn get_working_interceptor_catalog_fails_when_pipeline_references_unknown_
         .handle(
             &dummy_request(),
             no_params_action_record::<GetWorkingInterceptorCatalog>(),
+            &invocation_context("test"),
         )
         .await
         .unwrap_err();

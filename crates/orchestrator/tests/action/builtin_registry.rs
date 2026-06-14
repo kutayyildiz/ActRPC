@@ -5,7 +5,8 @@ use actrpc_orchestrator::action::{
         get_interceptor_catalog::GetInterceptorCatalog, get_transcript::GetTranscript,
         get_working_interceptor_catalog::GetWorkingInterceptorCatalog,
         get_working_pipeline::GetWorkingPipeline, modify_error::ModifyError,
-        modify_params::ModifyParams, modify_result::ModifyResult, reject_call::RejectCall,
+        modify_params::ModifyParams, modify_result::ModifyResult,
+        query_execution_context::QueryExecutionContext, reject_call::RejectCall,
         request_review::RequestReview,
     },
     available_actions,
@@ -26,6 +27,7 @@ fn available_actions_contains_all_builtin_actions() {
     assert!(actions.contains_key(&GetInterceptorCatalog::action_kind()));
     assert!(actions.contains_key(&GetWorkingInterceptorCatalog::action_kind()));
     assert!(actions.contains_key(&CallMethod::action_kind()));
+    assert!(actions.contains_key(&QueryExecutionContext::action_kind()));
 
-    assert_eq!(actions.len(), 11);
+    assert_eq!(actions.len(), 12);
 }

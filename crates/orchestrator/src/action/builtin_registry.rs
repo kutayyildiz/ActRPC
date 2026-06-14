@@ -13,6 +13,7 @@ use crate::{
             modify_error::{ModifyError, ModifyErrorHandler},
             modify_params::{ModifyParams, ModifyParamsHandler},
             modify_result::{ModifyResult, ModifyResultHandler},
+            query_execution_context::{QueryExecutionContext, QueryExecutionContextHandler},
             reject_call::{RejectCall, RejectCallHandler},
             request_review::{RequestReview, RequestReviewHandler},
         },
@@ -37,6 +38,7 @@ pub fn available_actions() -> HashMap<ActionKind, ActionDescriptor> {
     insert_action::<GetWorkingPipeline>(&mut actions);
     insert_action::<CallMethod>(&mut actions);
     insert_action::<RequestReview>(&mut actions);
+    insert_action::<QueryExecutionContext>(&mut actions);
 
     actions
 }
@@ -88,6 +90,10 @@ pub fn build_builtin_action_registry(
 
     registry.register::<RequestReview, _>(RequestReviewHandler::new(
         resources.review_provider.clone(),
+    ))?;
+
+    registry.register::<QueryExecutionContext, _>(QueryExecutionContextHandler::new(
+        phase.call.transcript.clone(),
     ))?;
 
     Ok(registry)

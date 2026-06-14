@@ -344,6 +344,105 @@ async fn reinvoke_reuses_prior_actions_only_for_same_interceptor() {
     );
 }
 
+#[tokio::test]
+async fn interception_id_is_stable_across_reinvoke_and_unique_per_interceptor() {
+    let first = Arc::new(QueuedInterceptor::new(vec![
+        InterceptionResponse {
+            continuation: InterceptorContinuation::Reinvoke,
+            actions: vec![],
+        },
+        InterceptionResponse {
+            continuation: InterceptorContinuation::Stop,
+            actions: vec![],
+        },
+    ]));
+
+    let second = Arc::new(QueuedInterceptor::new(vec![InterceptionResponse {
+        continuation: InterceptorContinuation::Stop,
+        actions: vec![],
+    }]));
+
+    let catalog = two_interceptor_catalog(
+        ("first", first.clone()),
+        ("second", second.clone()),
+        empty_policy(),
+        empty_policy(),
+        vec!["first", "second"],
+        vec![],
+    );
+
+    let orchestrator = test_orchestrator(
+        catalog,
+        Arc::new(RecordingClient::new(response_message(json!("ok")))),
+    )
+    .await;
+
+    orchestrator
+        .call(
+            ProviderName::from(TEST_PROVIDER),
+            MethodName::from("sum"),
+            None,
+        )
+        .await
+        .unwrap();
+
+    let first_seen = first.seen();
+    assert_eq!(first_seen.len(), 2);
+    assert_eq!(first_seen[0].call_id, first_seen[1].call_id);
+    assert_eq!(first_seen[0].interception_id, first_seen[1].interception_id);
+    assert_eq!(first_seen[0].target.method, "sum");
+    assert_eq!(first_seen[0].target.provider, TEST_PROVIDER);
+
+    let second_seen = second.seen();
+    assert_eq!(second_seen.len(), 1);
+    assert_eq!(second_seen[0].call_id, first_seen[0].call_id);
+    assert_ne!(second_seen[0].interception_id, first_seen[0].interception_id);
+}
+
+#[tokio::test]
+async fn inbound_interception_preserves_target_from_outbound_call() {
+    let interceptor = Arc::new(QueuedInterceptor::new(vec![
+        InterceptionResponse {
+            continuation: InterceptorContinuation::Stop,
+            actions: vec![],
+        },
+        InterceptionResponse {
+            continuation: InterceptorContinuation::Stop,
+            actions: vec![],
+        },
+    ]));
+
+    let catalog = single_interceptor_catalog(
+        "target_check",
+        interceptor.clone(),
+        empty_policy(),
+        vec!["target_check"],
+        vec!["target_check"],
+    );
+
+    let orchestrator = test_orchestrator(
+        catalog,
+        Arc::new(RecordingClient::new(response_message(json!("ok")))),
+    )
+    .await;
+
+    orchestrator
+        .call(
+            ProviderName::from(TEST_PROVIDER),
+            MethodName::from("get"),
+            None,
+        )
+        .await
+        .unwrap();
+
+    let seen = interceptor.seen();
+    assert_eq!(seen.len(), 2);
+    assert_eq!(seen[0].target.method, "get");
+    assert_eq!(seen[1].target.method, "get");
+    assert_eq!(seen[0].target.provider, TEST_PROVIDER);
+    assert_eq!(seen[1].target.provider, TEST_PROVIDER);
+}
+
 async fn test_orchestrator(
     catalog: InterceptorCatalog,
     client: Arc<RecordingClient>,
@@ -398,6 +497,13 @@ async fn test_orchestrator(
     let factory = Arc::new(CallExecutionFactory::new(resources));
 
     DefaultOrchestrator::new(factory)
+}
+
+fn empty_policy() -> InterceptorPolicy {
+    InterceptorPolicy {
+        outbound: HashSet::new(),
+        inbound: HashSet::new(),
+    }
 }
 
 fn single_interceptor_catalog(

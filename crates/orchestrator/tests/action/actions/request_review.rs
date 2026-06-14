@@ -12,7 +12,7 @@ use actrpc_orchestrator::{
 use serde_json::json;
 use std::sync::Arc;
 
-use super::super::helpers::{action_record, dummy_request};
+use super::super::helpers::{action_record, dummy_request, invocation_context};
 
 struct ApprovingReviewProvider;
 
@@ -54,7 +54,7 @@ async fn request_review_handler_returns_approved_provider_decision() {
     let resolved = registry
         .get(&RequestReview::action_kind())
         .unwrap()
-        .handle(&dummy_request(), action)
+        .handle(&dummy_request(), action, &invocation_context("test"))
         .await
         .unwrap();
 
@@ -94,7 +94,7 @@ async fn request_review_handler_returns_denied_provider_decision() {
     let resolved = registry
         .get(&RequestReview::action_kind())
         .unwrap()
-        .handle(&dummy_request(), action)
+        .handle(&dummy_request(), action, &invocation_context("test"))
         .await
         .unwrap();
 

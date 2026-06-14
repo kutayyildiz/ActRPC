@@ -14,7 +14,8 @@ use serde_json::json;
 use std::sync::Arc;
 
 use super::super::helpers::{
-    action_record, dummy_request, object_params, request_message, success_message,
+    action_record, dummy_request, invocation_context, object_params, request_message,
+    success_message,
 };
 
 #[tokio::test]
@@ -37,7 +38,7 @@ async fn modify_params_replaces_request_params() {
     let resolved = registry
         .get(&ModifyParams::action_kind())
         .unwrap()
-        .handle(&dummy_request(), action)
+        .handle(&dummy_request(), action, &invocation_context("test"))
         .await
         .unwrap();
 
@@ -77,7 +78,7 @@ async fn modify_params_can_clear_request_params() {
     registry
         .get(&ModifyParams::action_kind())
         .unwrap()
-        .handle(&dummy_request(), action)
+        .handle(&dummy_request(), action, &invocation_context("test"))
         .await
         .unwrap();
 
@@ -108,7 +109,7 @@ async fn modify_params_rejects_non_request_message() {
     let err = registry
         .get(&ModifyParams::action_kind())
         .unwrap()
-        .handle(&dummy_request(), action)
+        .handle(&dummy_request(), action, &invocation_context("test"))
         .await
         .unwrap_err();
 
@@ -138,7 +139,7 @@ async fn modify_params_rejects_missing_in_flight_message() {
     let err = registry
         .get(&ModifyParams::action_kind())
         .unwrap()
-        .handle(&dummy_request(), action)
+        .handle(&dummy_request(), action, &invocation_context("test"))
         .await
         .unwrap_err();
 

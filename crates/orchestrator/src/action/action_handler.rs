@@ -1,4 +1,4 @@
-use crate::error::ActionHandlerError;
+use crate::{action::ActionInvocationContext, error::ActionHandlerError};
 use actrpc_core::{
     action::{ActionKind, RequestedActionRecord, ResolvedActionRecord},
     interception::InterceptionRequest,
@@ -17,6 +17,7 @@ pub trait ActionHandler: Send + Sync {
         &'a self,
         request: &'a InterceptionRequest,
         action: RequestedActionRecord,
+        ctx: &'a ActionInvocationContext,
     ) -> ActionHandlerFuture<'a>
     where
         Self: 'a;

@@ -1,11 +1,11 @@
+mod support;
+
 use actrpc_core::{
     action::{ActionKind, ResolvedActionRecord},
     interception::{InterceptionRequest, InterceptorContinuation},
     json_rpc::{
-        JsonRpcId, JsonRpcMessage, JsonRpcParams, JsonRpcRequest, JsonRpcSingleMessage,
-        JsonRpcVersion,
+        JsonRpcMessage, JsonRpcParams, JsonRpcRequest, JsonRpcSingleMessage, JsonRpcVersion,
     },
-    participant::{Participant, ParticipantType},
 };
 use actrpc_interceptor::interceptors::policy::{
     PolicyInterceptor,
@@ -21,6 +21,7 @@ use actrpc_orchestrator::{
     interceptor::Interceptor,
 };
 use serde_json::json;
+use support::{default_target, external_origin, sample_request};
 
 #[tokio::test]
 async fn no_matching_rule_emits_no_actions_and_stops() {
@@ -487,19 +488,17 @@ fn outbound_request(method: &str, params: serde_json::Value) -> InterceptionRequ
         other => panic!("test params must be array or object, got {other}"),
     };
 
-    InterceptionRequest {
-        origin: Participant {
-            kind: ParticipantType::Orchestrator,
-            id: "orchestrator".to_owned(),
-        },
-        message: JsonRpcMessage::Single(JsonRpcSingleMessage::Request(JsonRpcRequest {
+    sample_request(
+        external_origin("caller"),
+        default_target(method),
+        JsonRpcMessage::Single(JsonRpcSingleMessage::Request(JsonRpcRequest {
             jsonrpc: JsonRpcVersion::V2_0,
-            id: JsonRpcId::Number(1.into()),
+            id: actrpc_core::json_rpc::JsonRpcId::Number(1.into()),
             method: method.to_owned(),
             params,
         })),
-        resolved_action_history: vec![],
-    }
+        vec![],
+    )
 }
 
 fn resolved_request_review(rule_name: &str, decision: &str) -> ResolvedActionRecord {

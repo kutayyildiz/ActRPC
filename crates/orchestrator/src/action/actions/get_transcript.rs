@@ -1,5 +1,5 @@
 use crate::{
-    action::{ActionHandlerFuture, TypedActionHandler},
+    action::{ActionHandlerFuture, ActionInvocationContext, TypedActionHandler},
     error::ActionExecutionError,
     runtime::TranscriptState,
     transcript::TranscriptEntryView,
@@ -34,6 +34,7 @@ impl TypedActionHandler<GetTranscript> for GetTranscriptHandler {
         &'a self,
         _request: &'a InterceptionRequest,
         action: RequestedAction<GetTranscript>,
+        _ctx: &'a ActionInvocationContext,
     ) -> ActionHandlerFuture<'a, Result<ResolvedAction<GetTranscript>, ActionExecutionError>>
     where
         Self: 'a,

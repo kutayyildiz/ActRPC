@@ -7,5 +7,6 @@ pub mod get_working_pipeline;
 pub mod modify_error;
 pub mod modify_params;
 pub mod modify_result;
+pub mod query_execution_context;
 pub mod reject_call;
 pub mod request_review;

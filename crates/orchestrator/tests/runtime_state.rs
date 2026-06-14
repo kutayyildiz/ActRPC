@@ -59,9 +59,11 @@ fn transcript_state_appends_and_snapshots_entries() {
     assert!(state.is_empty().unwrap());
     assert_eq!(state.len().unwrap(), 0);
 
+    let call_id = CallId::new();
+
     state
         .append(TranscriptEntryInput {
-            call_id: CallId(1),
+            call_id,
             parent_call_id: None,
             depth: 0,
             from: TranscriptParticipant::orchestrator_main(),
@@ -81,7 +83,7 @@ fn transcript_state_appends_and_snapshots_entries() {
     assert_eq!(snapshot[0].to, "interceptor:policy");
     assert_eq!(snapshot[0].seq, 1);
     assert!(snapshot[0].ts_ms > 0);
-    assert_eq!(snapshot[0].call_id, 1);
+    assert_eq!(snapshot[0].call_id, call_id);
     assert_eq!(snapshot[0].parent_call_id, None);
     assert_eq!(snapshot[0].depth, 0);
     assert_eq!(snapshot[0].protocol, PROTOCOL_INTERCEPTOR_REQUEST);

@@ -1,11 +1,12 @@
+mod support;
+
 use actrpc_core::{
     action::ActionSpec,
     interception::{InterceptionRequest, InterceptorContinuation},
     json_rpc::{
-        JsonRpcId, JsonRpcMessage, JsonRpcParams, JsonRpcRequest, JsonRpcResponse,
-        JsonRpcSingleMessage, JsonRpcSuccessResponse, JsonRpcVersion,
+        JsonRpcMessage, JsonRpcParams, JsonRpcRequest, JsonRpcResponse, JsonRpcSingleMessage,
+        JsonRpcSuccessResponse, JsonRpcVersion,
     },
-    participant::{Participant, ParticipantType},
 };
 use actrpc_interceptor::interceptors::policy::{
     PolicyInterceptor,
@@ -16,6 +17,7 @@ use actrpc_interceptor::interceptors::policy::{
 };
 use actrpc_orchestrator::{action::actions::reject_call::RejectCall, interceptor::Interceptor};
 use serde_json::json;
+use support::{default_target, external_origin, sample_request};
 
 #[tokio::test]
 async fn phase_fact_matches_outbound_only() {
@@ -73,34 +75,30 @@ fn outbound_request(method: &str, params: serde_json::Value) -> InterceptionRequ
         other => panic!("test params must be array or object, got {other}"),
     };
 
-    InterceptionRequest {
-        origin: Participant {
-            kind: ParticipantType::Orchestrator,
-            id: "orchestrator".to_owned(),
-        },
-        message: JsonRpcMessage::Single(JsonRpcSingleMessage::Request(JsonRpcRequest {
+    sample_request(
+        external_origin("caller"),
+        default_target(method),
+        JsonRpcMessage::Single(JsonRpcSingleMessage::Request(JsonRpcRequest {
             jsonrpc: JsonRpcVersion::V2_0,
-            id: JsonRpcId::Number(1.into()),
+            id: actrpc_core::json_rpc::JsonRpcId::Number(1.into()),
             method: method.to_owned(),
             params,
         })),
-        resolved_action_history: vec![],
-    }
+        vec![],
+    )
 }
 
 fn inbound_success_response(result: serde_json::Value) -> InterceptionRequest {
-    InterceptionRequest {
-        origin: Participant {
-            kind: ParticipantType::Orchestrator,
-            id: "orchestrator".to_owned(),
-        },
-        message: JsonRpcMessage::Single(JsonRpcSingleMessage::Response(JsonRpcResponse::Success(
+    sample_request(
+        external_origin("test-provider"),
+        default_target("write_file"),
+        JsonRpcMessage::Single(JsonRpcSingleMessage::Response(JsonRpcResponse::Success(
             JsonRpcSuccessResponse {
                 jsonrpc: JsonRpcVersion::V2_0,
-                id: JsonRpcId::Number(1.into()),
+                id: actrpc_core::json_rpc::JsonRpcId::Number(1.into()),
                 result,
             },
         ))),
-        resolved_action_history: vec![],
-    }
+        vec![],
+    )
 }

@@ -13,7 +13,9 @@ use actrpc_orchestrator::{
 use serde_json::json;
 use std::sync::Arc;
 
-use super::super::helpers::{action_record, dummy_request, request_message, success_message};
+use super::super::helpers::{
+    action_record, dummy_request, invocation_context, request_message, success_message,
+};
 
 #[tokio::test]
 async fn modify_result_replaces_success_response_result() {
@@ -34,7 +36,7 @@ async fn modify_result_replaces_success_response_result() {
     let resolved = registry
         .get(&ModifyResult::action_kind())
         .unwrap()
-        .handle(&dummy_request(), action)
+        .handle(&dummy_request(), action, &invocation_context("test"))
         .await
         .unwrap();
 
@@ -66,7 +68,7 @@ async fn modify_result_rejects_non_success_response() {
     let err = registry
         .get(&ModifyResult::action_kind())
         .unwrap()
-        .handle(&dummy_request(), action)
+        .handle(&dummy_request(), action, &invocation_context("test"))
         .await
         .unwrap_err();
 
@@ -94,7 +96,7 @@ async fn modify_result_rejects_missing_in_flight_message() {
     let err = registry
         .get(&ModifyResult::action_kind())
         .unwrap()
-        .handle(&dummy_request(), action)
+        .handle(&dummy_request(), action, &invocation_context("test"))
         .await
         .unwrap_err();
 

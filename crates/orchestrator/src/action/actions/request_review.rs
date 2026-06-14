@@ -1,5 +1,5 @@
 use crate::{
-    action::{ActionHandlerFuture, TypedActionHandler},
+    action::{ActionHandlerFuture, ActionInvocationContext, TypedActionHandler},
     error::ActionExecutionError,
     review::ReviewProvider,
 };
@@ -79,6 +79,7 @@ impl TypedActionHandler<RequestReview> for RequestReviewHandler {
         &'a self,
         _request: &'a InterceptionRequest,
         action: RequestedAction<RequestReview>,
+        _ctx: &'a ActionInvocationContext,
     ) -> ActionHandlerFuture<'a, Result<ResolvedAction<RequestReview>, ActionExecutionError>>
     where
         Self: 'a,

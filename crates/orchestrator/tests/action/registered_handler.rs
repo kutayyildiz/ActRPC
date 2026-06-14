@@ -3,12 +3,12 @@ use actrpc_core::{
     interception::InterceptionRequest,
 };
 use actrpc_orchestrator::{
-    action::{ActionHandlerFuture, ActionRegistry, TypedActionHandler},
+    action::{ActionHandlerFuture, ActionInvocationContext, ActionRegistry, TypedActionHandler},
     error::{ActionExecutionError, ActionHandlerError},
 };
 use serde_json::json;
 
-use super::helpers::dummy_request;
+use super::helpers::{dummy_request, invocation_context};
 
 struct EchoAction;
 
@@ -26,6 +26,7 @@ impl TypedActionHandler<EchoAction> for EchoHandler {
         &'a self,
         _request: &'a InterceptionRequest,
         action: RequestedAction<EchoAction>,
+        _ctx: &'a ActionInvocationContext,
     ) -> ActionHandlerFuture<'a, Result<ResolvedAction<EchoAction>, ActionExecutionError>>
     where
         Self: 'a,
@@ -52,7 +53,7 @@ async fn registered_handler_decodes_typed_action_and_encodes_result_record() {
     let resolved = registry
         .get(&EchoAction::action_kind())
         .unwrap()
-        .handle(&dummy_request(), action)
+        .handle(&dummy_request(), action, &invocation_context("test"))
         .await
         .unwrap();
 
@@ -74,7 +75,7 @@ async fn registered_handler_rejects_malformed_params() {
     let err = registry
         .get(&EchoAction::action_kind())
         .unwrap()
-        .handle(&dummy_request(), action)
+        .handle(&dummy_request(), action, &invocation_context("test"))
         .await
         .unwrap_err();
 

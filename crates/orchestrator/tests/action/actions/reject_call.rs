@@ -9,7 +9,7 @@ use actrpc_orchestrator::{
 use serde_json::json;
 use std::sync::Arc;
 
-use super::super::helpers::{action_record, dummy_request};
+use super::super::helpers::{action_record, dummy_request, invocation_context};
 
 #[tokio::test]
 async fn reject_call_sets_current_call_rejection() {
@@ -33,7 +33,7 @@ async fn reject_call_sets_current_call_rejection() {
     let resolved = registry
         .get(&RejectCall::action_kind())
         .unwrap()
-        .handle(&dummy_request(), action)
+        .handle(&dummy_request(), action, &invocation_context("test"))
         .await
         .unwrap();
 

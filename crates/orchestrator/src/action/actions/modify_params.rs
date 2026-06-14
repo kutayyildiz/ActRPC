@@ -1,5 +1,5 @@
 use crate::{
-    action::{ActionHandlerFuture, TypedActionHandler},
+    action::{ActionHandlerFuture, ActionInvocationContext, TypedActionHandler},
     error::ActionExecutionError,
     runtime::InFlightMessageState,
 };
@@ -41,6 +41,7 @@ impl TypedActionHandler<ModifyParams> for ModifyParamsHandler {
         &'a self,
         _request: &'a InterceptionRequest,
         action: RequestedAction<ModifyParams>,
+        _ctx: &'a ActionInvocationContext,
     ) -> ActionHandlerFuture<'a, Result<ResolvedAction<ModifyParams>, ActionExecutionError>>
     where
         Self: 'a,

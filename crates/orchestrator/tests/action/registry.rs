@@ -3,7 +3,7 @@ use actrpc_core::{
     interception::InterceptionRequest,
 };
 use actrpc_orchestrator::{
-    action::{ActionHandlerFuture, ActionRegistry, TypedActionHandler},
+    action::{ActionHandlerFuture, ActionInvocationContext, ActionRegistry, TypedActionHandler},
     error::{ActionError, ActionExecutionError, OrchestratorError},
 };
 
@@ -23,6 +23,7 @@ impl TypedActionHandler<EchoAction> for EchoHandler {
         &'a self,
         _request: &'a InterceptionRequest,
         action: RequestedAction<EchoAction>,
+        _ctx: &'a ActionInvocationContext,
     ) -> ActionHandlerFuture<'a, Result<ResolvedAction<EchoAction>, ActionExecutionError>>
     where
         Self: 'a,

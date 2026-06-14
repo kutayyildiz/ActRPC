@@ -6,11 +6,11 @@ error[E0277]: the trait bound `HashMap<std::string::String, std::string::String>
    |
    = help: the following other types implement trait `DescribeValue`:
              ActionKind
+             CallId
+             CallLineage
+             CallRelation
+             CurrentExecutionContext
+             ExecutionContextQuery
+             ExecutionContextQueryResult
              HashSet<T>
-             InterceptorCapabilities
-             JsonRpcError
-             JsonRpcErrorResponse
-             JsonRpcId
-             JsonRpcParams
-             JsonRpcResponse
            and $N others

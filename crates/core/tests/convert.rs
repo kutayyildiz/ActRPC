@@ -1,3 +1,5 @@
+mod support;
+
 use actrpc_core::{
     ACTRPC_INTERCEPTOR_INTERCEPT_METHOD,
     action::{ActionKind, RequestedActionRecord},
@@ -7,25 +9,22 @@ use actrpc_core::{
         JsonRpcError, JsonRpcErrorResponse, JsonRpcId, JsonRpcMessage, JsonRpcParams,
         JsonRpcRequest, JsonRpcResponse, JsonRpcSingleMessage, JsonRpcVersion,
     },
-    participant::{Participant, ParticipantType},
 };
 use serde_json::json;
+use support::{external_origin, sample_request};
 
 #[test]
 fn test_interception_request_into_json_rpc_request() {
-    let payload = InterceptionRequest {
-        origin: Participant {
-            kind: ParticipantType::User,
-            id: "cli-123".to_string(),
-        },
-        message: JsonRpcMessage::Single(JsonRpcSingleMessage::Request(JsonRpcRequest {
+    let payload = sample_request(
+        external_origin("cli-123"),
+        JsonRpcMessage::Single(JsonRpcSingleMessage::Request(JsonRpcRequest {
             jsonrpc: JsonRpcVersion::V2_0,
             id: JsonRpcId::Number(99.into()),
             method: "subtract".to_string(),
             params: Some(JsonRpcParams::Array(vec![json!(10), json!(3)])),
         })),
-        resolved_action_history: Default::default(),
-    };
+        Default::default(),
+    );
 
     let req: JsonRpcRequest = (JsonRpcId::Number(1.into()), payload.clone()).into();
 

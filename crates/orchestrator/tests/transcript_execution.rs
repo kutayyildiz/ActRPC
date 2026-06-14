@@ -64,6 +64,7 @@ async fn root_call_records_interceptor_and_provider_exchanges() {
             ProviderName::from(TEST_PROVIDER),
             MethodName::from("sum"),
             None,
+            "caller",
         )
         .unwrap();
 
@@ -125,6 +126,7 @@ async fn method_request_reflects_outbound_interceptor_mutation() {
             ProviderName::from(TEST_PROVIDER),
             MethodName::from("sum"),
             Some(JsonRpcParams::Array(vec![json!(1), json!(2)])),
+            "caller",
         )
         .unwrap();
 
@@ -190,6 +192,7 @@ async fn nested_call_method_produces_linked_call_ids() {
             ProviderName::from(TEST_PROVIDER),
             MethodName::from("sum"),
             None,
+            "caller",
         )
         .unwrap();
 
@@ -197,7 +200,8 @@ async fn nested_call_method_produces_linked_call_ids() {
     execution.run().await.unwrap();
 
     let entries = transcript.snapshot().unwrap();
-    let call_ids: HashSet<u64> = entries.iter().map(|entry| entry.call_id).collect();
+    let call_ids: HashSet<actrpc_core::CallId> =
+        entries.iter().map(|entry| entry.call_id).collect();
     assert_eq!(call_ids.len(), 2);
 
     let root_entries: Vec<_> = entries.iter().filter(|entry| entry.depth == 0).collect();
@@ -253,6 +257,7 @@ async fn max_call_depth_zero_rejects_nested_call_method() {
             ProviderName::from(TEST_PROVIDER),
             MethodName::from("sum"),
             None,
+            "caller",
         )
         .unwrap();
 
@@ -295,6 +300,7 @@ async fn reinvoke_limit_is_enforced() {
             ProviderName::from(TEST_PROVIDER),
             MethodName::from("sum"),
             None,
+            "caller",
         )
         .unwrap();
 
@@ -346,6 +352,7 @@ async fn reinvoke_with_actions_still_trips_limit() {
             ProviderName::from(TEST_PROVIDER),
             MethodName::from("sum"),
             None,
+            "caller",
         )
         .unwrap();
 
@@ -382,6 +389,7 @@ async fn interception_timeout_is_enforced() {
             ProviderName::from(TEST_PROVIDER),
             MethodName::from("sum"),
             None,
+            "caller",
         )
         .unwrap();
 
@@ -439,6 +447,7 @@ async fn max_actions_per_interception_is_enforced_before_execution() {
             ProviderName::from(TEST_PROVIDER),
             MethodName::from("sum"),
             None,
+            "caller",
         )
         .unwrap();
 
@@ -484,6 +493,7 @@ async fn reinvoke_within_limit_succeeds() {
             ProviderName::from(TEST_PROVIDER),
             MethodName::from("sum"),
             None,
+            "caller",
         )
         .unwrap();
 
@@ -519,6 +529,7 @@ async fn per_interceptor_timeout_override_allows_slow_interceptor() {
             ProviderName::from(TEST_PROVIDER),
             MethodName::from("sum"),
             None,
+            "caller",
         )
         .unwrap();
 
@@ -563,6 +574,7 @@ async fn per_interceptor_reinvoke_override_relaxes_global_limit() {
             ProviderName::from(TEST_PROVIDER),
             MethodName::from("sum"),
             None,
+            "caller",
         )
         .unwrap();
 
@@ -604,6 +616,7 @@ async fn guard_errors_include_global_config_hint() {
             ProviderName::from(TEST_PROVIDER),
             MethodName::from("sum"),
             None,
+            "caller",
         )
         .unwrap();
 
@@ -647,6 +660,7 @@ async fn guard_errors_include_interceptor_config_hint() {
             ProviderName::from(TEST_PROVIDER),
             MethodName::from("sum"),
             None,
+            "caller",
         )
         .unwrap();
 

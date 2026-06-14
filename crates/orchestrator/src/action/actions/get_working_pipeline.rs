@@ -1,5 +1,5 @@
 use crate::{
-    action::{ActionHandlerFuture, TypedActionHandler},
+    action::{ActionHandlerFuture, ActionInvocationContext, TypedActionHandler},
     error::ActionExecutionError,
     interceptor::WorkingInterceptorPipeline,
 };
@@ -40,6 +40,7 @@ impl TypedActionHandler<GetWorkingPipeline> for GetWorkingPipelineHandler {
         &'a self,
         _request: &'a InterceptionRequest,
         action: RequestedAction<GetWorkingPipeline>,
+        _ctx: &'a ActionInvocationContext,
     ) -> ActionHandlerFuture<'a, Result<ResolvedAction<GetWorkingPipeline>, ActionExecutionError>>
     where
         Self: 'a,

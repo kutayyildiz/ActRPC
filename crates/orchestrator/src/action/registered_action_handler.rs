@@ -1,4 +1,6 @@
-use crate::action::{ActionHandler, ActionHandlerFuture, TypedActionHandler};
+use crate::action::{
+    ActionHandler, ActionHandlerFuture, ActionInvocationContext, TypedActionHandler,
+};
 use actrpc_core::{
     action::{ActionKind, ActionSpec, RequestedActionRecord, ResolvedActionRecord},
     interception::InterceptionRequest,
@@ -46,13 +48,14 @@ where
         &'a self,
         request: &'a InterceptionRequest,
         action: RequestedActionRecord,
+        ctx: &'a ActionInvocationContext,
     ) -> ActionHandlerFuture<'a>
     where
         Self: 'a,
     {
         Box::pin(async move {
             let typed_action = action.try_into()?;
-            let resolved = self.inner.handle_typed(request, typed_action).await?;
+            let resolved = self.inner.handle_typed(request, typed_action, ctx).await?;
             let record: ResolvedActionRecord =
                 resolved.try_into().map_err(map_serde_serialize_err)?;
 

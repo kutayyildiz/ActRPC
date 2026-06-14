@@ -11,15 +11,17 @@ use actrpc_orchestrator::{
 use serde_json::json;
 use std::sync::Arc;
 
-use super::super::helpers::{dummy_request, no_params_action_record};
+use super::super::helpers::{dummy_request, invocation_context, no_params_action_record};
 
 #[tokio::test]
 async fn get_transcript_returns_transcript_snapshot() {
     let transcript = Arc::new(TranscriptState::new());
 
+    let call_id = CallId::new();
+
     transcript
         .append(TranscriptEntryInput {
-            call_id: CallId(1),
+            call_id,
             parent_call_id: None,
             depth: 0,
             from: TranscriptParticipant {
@@ -40,7 +42,11 @@ async fn get_transcript_returns_transcript_snapshot() {
     let resolved = registry
         .get(&GetTranscript::action_kind())
         .unwrap()
-        .handle(&dummy_request(), no_params_action_record::<GetTranscript>())
+        .handle(
+            &dummy_request(),
+            no_params_action_record::<GetTranscript>(),
+            &invocation_context("test"),
+        )
         .await
         .unwrap();
 
