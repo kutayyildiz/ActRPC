@@ -4,6 +4,7 @@ use crate::{
     runtime::{CallExecution, CallRuntime, OrchestratorResources},
 };
 use actrpc_core::{
+    CallContext,
     json_rpc::{JsonRpcMessage, JsonRpcParams},
     participant::{Participant, ParticipantType},
 };
@@ -58,6 +59,7 @@ impl CallExecutionFactory {
         provider: ProviderName,
         method: MethodName,
         params: Option<JsonRpcParams>,
+        call_ctx: Option<CallContext>,
         parent: &CallRuntime,
         child_origin: Participant,
     ) -> Result<CallExecution, OrchestratorError> {
@@ -91,6 +93,7 @@ impl CallExecutionFactory {
             child_depth,
             child_origin,
             target,
+            call_ctx,
         ));
 
         Ok(CallExecution::new(self.clone(), call, provider, method))
@@ -112,10 +115,12 @@ impl CallExecutionFactory {
         provider: ProviderName,
         method: MethodName,
         params: Option<JsonRpcParams>,
+        call_ctx: Option<CallContext>,
         parent: &CallRuntime,
         child_origin: Participant,
     ) -> Result<JsonRpcMessage, OrchestratorError> {
-        let execution = self.create_piped(provider, method, params, parent, child_origin)?;
+        let execution =
+            self.create_piped(provider, method, params, call_ctx, parent, child_origin)?;
         execution.run().await
     }
 }

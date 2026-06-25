@@ -1,11 +1,5 @@
 use crate::interceptors::dynamic_policy::scope::ScopeId;
-use globset::Error as GlobError;
-
-pub const JSON_RPC_INVALID_PARAMS: i32 = -32602;
-pub const JSON_RPC_METHOD_NOT_FOUND: i32 = -32601;
-pub const JSON_RPC_SERVER_ERROR: i32 = -32000;
-pub const SCOPE_NOT_FOUND_CODE: i32 = -32012;
-pub const CREATOR_MISMATCH_CODE: i32 = -32013;
+use std::{io, path::PathBuf};
 
 #[derive(Debug, thiserror::Error)]
 pub enum DynamicPolicyError {
@@ -15,14 +9,32 @@ pub enum DynamicPolicyError {
     #[error("scope not found: {scope_id}")]
     ScopeNotFound { scope_id: ScopeId },
 
-    #[error("creator mismatch for scope {scope_id}")]
-    CreatorMismatch { scope_id: ScopeId },
+    #[error("invalid config: {message}")]
+    InvalidConfig { message: String },
 
-    #[error("invalid glob in target selector: {source}")]
-    InvalidGlob { source: GlobError },
+    #[error("failed to read config at {path}: {source}")]
+    ConfigRead {
+        path: PathBuf,
+        #[source]
+        source: io::Error,
+    },
 
-    #[error("unknown method: {method}")]
-    MethodNotFound { method: String },
+    #[error("failed to deserialize TOML config at {path}: {source}")]
+    ConfigDeserializeToml {
+        path: PathBuf,
+        #[source]
+        source: toml::de::Error,
+    },
+
+    #[error("failed to deserialize YAML config at {path}: {source}")]
+    ConfigDeserializeYaml {
+        path: PathBuf,
+        #[source]
+        source: serde_yaml::Error,
+    },
+
+    #[error("unsupported config format for {path}")]
+    UnsupportedConfigFormat { path: PathBuf },
 
     #[error("action encoding failed: {source}")]
     ActionEncoding {
@@ -33,6 +45,12 @@ pub enum DynamicPolicyError {
     #[error("invalid query result: {message}")]
     InvalidQueryResult { message: String },
 
+    #[error("invalid review result: {message}")]
+    InvalidReviewResult { message: String },
+
+    #[error("invalid dynamic policy context: {message}")]
+    InvalidContext { message: String },
+
     #[error("internal store error: {message}")]
     Store { message: String },
 }
@@ -41,18 +59,6 @@ impl DynamicPolicyError {
     pub fn invalid_params(message: impl Into<String>) -> Self {
         Self::InvalidParams {
             message: message.into(),
-        }
-    }
-
-    pub fn json_rpc_code(&self) -> i32 {
-        match self {
-            Self::InvalidParams { .. } | Self::InvalidGlob { .. } => JSON_RPC_INVALID_PARAMS,
-            Self::ScopeNotFound { .. } => SCOPE_NOT_FOUND_CODE,
-            Self::CreatorMismatch { .. } => CREATOR_MISMATCH_CODE,
-            Self::MethodNotFound { .. } => JSON_RPC_METHOD_NOT_FOUND,
-            Self::ActionEncoding { .. } | Self::InvalidQueryResult { .. } | Self::Store { .. } => {
-                JSON_RPC_SERVER_ERROR
-            }
         }
     }
 }

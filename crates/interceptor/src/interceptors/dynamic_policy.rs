@@ -1,18 +1,15 @@
 pub mod component;
+pub mod config;
+pub mod context;
 pub mod error;
 pub mod interceptor;
-pub mod matcher;
-pub mod provider;
 pub mod scope;
 pub mod store;
 
-pub use component::{DynamicPolicyComponent, new_component};
+pub use component::{DynamicPolicyComponent, new_component, new_component_with_config};
+pub use config::{DynamicPolicyConfig, UnscopedBehavior, UnscopedPolicy};
+pub use context::{DynamicPolicyContext, DynamicPolicyContextMode};
 pub use error::DynamicPolicyError;
 pub use interceptor::DynamicPolicyInterceptor;
-pub use provider::{DynamicPolicyMethodProvider, method_snapshot};
-pub use scope::{
-    CreateScopeParams, CreateScopeResult, DynamicScope, GetScopeParams, ListScopesParams,
-    ListScopesResult, PROVIDER_NAME, RelationMode, ReleaseScopeParams, ReleaseScopeResult, ScopeId,
-    TargetSelector,
-};
+pub use scope::{DynamicScope, ScopeId};
 pub use store::DynamicPolicyStore;

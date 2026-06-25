@@ -5,6 +5,7 @@ mod interceptor_capabilities;
 mod interceptor_initialization;
 
 pub mod action;
+pub mod call_context;
 pub mod call_id;
 pub mod descriptor;
 pub mod error;
@@ -23,6 +24,9 @@ pub use convert::{
 
 pub use actrpc_core_macros::{DescribeOk, DescribeParams, DescribeValue};
 
+pub use call_context::{
+    CallContext, InterceptionContext, MAX_CALL_CONTEXT_BYTES, MAX_INTERCEPTOR_CTX_ENTRIES,
+};
 pub use call_id::CallId;
 pub use execution_context::{
     CallLineage, CallRelation, CurrentExecutionContext, ExecutionContextQuery,

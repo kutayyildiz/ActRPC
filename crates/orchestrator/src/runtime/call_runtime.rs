@@ -3,7 +3,9 @@ use crate::{
     runtime::{CurrentCallRejection, InFlightMessageState, TranscriptState},
     transcript::{TranscriptEntryInput, TranscriptParticipant},
 };
-use actrpc_core::{CallId, MethodTarget, json_rpc::JsonRpcMessage, participant::Participant};
+use actrpc_core::{
+    CallContext, CallId, MethodTarget, json_rpc::JsonRpcMessage, participant::Participant,
+};
 use std::sync::Arc;
 
 #[derive(Debug)]
@@ -17,6 +19,7 @@ pub struct CallRuntime {
     depth: usize,
     origin: Participant,
     target: MethodTarget,
+    call_ctx: Option<CallContext>,
 }
 
 impl CallRuntime {
@@ -28,7 +31,7 @@ impl CallRuntime {
         target: MethodTarget,
     ) -> Self {
         Self::new(
-            message, transcript, call_id, None, call_id, 0, origin, target,
+            message, transcript, call_id, None, call_id, 0, origin, target, None,
         )
     }
 
@@ -41,6 +44,7 @@ impl CallRuntime {
         depth: usize,
         origin: Participant,
         target: MethodTarget,
+        call_ctx: Option<CallContext>,
     ) -> Self {
         Self::new(
             message,
@@ -51,6 +55,7 @@ impl CallRuntime {
             depth,
             origin,
             target,
+            call_ctx,
         )
     }
 
@@ -63,6 +68,7 @@ impl CallRuntime {
         depth: usize,
         origin: Participant,
         target: MethodTarget,
+        call_ctx: Option<CallContext>,
     ) -> Self {
         let in_flight_message = Arc::new(InFlightMessageState::new());
         in_flight_message.set_message(message);
@@ -77,7 +83,12 @@ impl CallRuntime {
             depth,
             origin,
             target,
+            call_ctx,
         }
+    }
+
+    pub fn call_ctx(&self) -> Option<&CallContext> {
+        self.call_ctx.as_ref()
     }
 
     pub fn call_id(&self) -> CallId {

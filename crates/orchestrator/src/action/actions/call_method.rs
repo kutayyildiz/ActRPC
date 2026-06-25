@@ -5,7 +5,7 @@ use crate::{
     runtime::{CallExecutionFactory, CallRuntime},
 };
 use actrpc_core::{
-    DescribeParams,
+    CallContext, DescribeParams,
     action::{ActionSpec, RequestedAction, ResolvedAction},
     interception::InterceptionRequest,
     json_rpc::{JsonRpcMessage, JsonRpcParams, JsonRpcResponse, JsonRpcSingleMessage},
@@ -22,13 +22,16 @@ pub struct CallMethodParams {
 
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub params: Option<JsonRpcParams>,
+
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub ctx: Option<CallContext>,
 }
 
 pub struct CallMethod;
 
 impl ActionSpec for CallMethod {
     type Params = CallMethodParams;
-    type Result = serde_json::Value;
+    type Result = JsonRpcResponse;
 
     const KIND: &'static str = "call_method";
 }
@@ -58,6 +61,10 @@ impl TypedActionHandler<CallMethod> for CallMethodHandler {
         Self: 'a,
     {
         Box::pin(async move {
+            if let Some(call_ctx) = &action.params.ctx {
+                crate::call_context::validate_call_context(call_ctx, CallMethod::action_kind())?;
+            }
+
             let child_origin = Participant {
                 kind: ParticipantType::Interceptor,
                 id: ctx.interceptor_name.clone(),
@@ -69,6 +76,7 @@ impl TypedActionHandler<CallMethod> for CallMethodHandler {
                     action.params.provider.clone(),
                     action.params.method.clone(),
                     action.params.params.clone(),
+                    action.params.ctx.clone(),
                     self.parent_call.as_ref(),
                     child_origin,
                 )
@@ -85,23 +93,9 @@ impl TypedActionHandler<CallMethod> for CallMethodHandler {
     }
 }
 
-fn decode_response_value(
-    message: JsonRpcMessage,
-) -> Result<serde_json::Value, ActionExecutionError> {
+fn decode_response_value(message: JsonRpcMessage) -> Result<JsonRpcResponse, ActionExecutionError> {
     match message {
-        JsonRpcMessage::Single(JsonRpcSingleMessage::Response(JsonRpcResponse::Success(
-            success,
-        ))) => Ok(success.result),
-
-        JsonRpcMessage::Single(JsonRpcSingleMessage::Response(JsonRpcResponse::Error(error))) => {
-            Err(ActionExecutionError::DependencyFailed {
-                dependency: "call_method".to_owned(),
-                message: format!(
-                    "method returned JSON-RPC error {}: {}",
-                    error.error.code, error.error.message
-                ),
-            })
-        }
+        JsonRpcMessage::Single(JsonRpcSingleMessage::Response(response)) => Ok(response),
 
         _ => Err(ActionExecutionError::DependencyFailed {
             dependency: "call_method".to_owned(),

@@ -2,7 +2,8 @@ use actrpc_core::{
     MethodTarget,
     action::ActionSpec,
     json_rpc::{
-        JsonRpcMessage, JsonRpcParams, JsonRpcRequest, JsonRpcSingleMessage, JsonRpcVersion,
+        JsonRpcId, JsonRpcMessage, JsonRpcParams, JsonRpcRequest, JsonRpcResponse,
+        JsonRpcSingleMessage, JsonRpcSuccessResponse, JsonRpcVersion,
     },
     participant::{Participant, ParticipantType},
 };
@@ -160,17 +161,27 @@ async fn call_method_returns_success_result() {
         .await
         .unwrap();
 
+    let response: JsonRpcResponse = serde_json::from_value(
+        resolved.result.unwrap().unwrap(),
+    )
+    .unwrap();
     assert_eq!(
-        resolved.result,
-        Ok(Some(json!({
-            "ok": true,
-            "value": 42
-        })))
+        response,
+        JsonRpcResponse::Success(JsonRpcSuccessResponse {
+            jsonrpc: JsonRpcVersion::V2_0,
+            id: JsonRpcId::Number(1.into()),
+            result: json!({
+                "ok": true,
+                "value": 42
+            }),
+        })
     );
 }
 
 #[tokio::test]
-async fn call_method_maps_json_rpc_error_response_to_dependency_failed() {
+async fn call_method_maps_json_rpc_error_response_to_resolved_json_rpc_response() {
+    use actrpc_core::json_rpc::JsonRpcErrorResponse;
+
     let factory = test_factory(error_message(json_error(-32000, "downstream failed")));
 
     let transcript = actrpc_orchestrator::runtime::TranscriptState::new();
@@ -187,23 +198,25 @@ async fn call_method_maps_json_rpc_error_response_to_dependency_failed() {
         "method": "test_method"
     }));
 
-    let err = registry
+    let resolved = registry
         .get(&CallMethod::action_kind())
         .unwrap()
         .handle(&dummy_request(), action, &invocation_context("test"))
         .await
-        .unwrap_err();
+        .unwrap();
 
-    match err {
-        ActionHandlerError::Execution(ActionExecutionError::DependencyFailed {
-            dependency,
-            message,
-        }) => {
-            assert_eq!(dependency, "call_method");
-            assert!(message.contains("downstream failed"));
-        }
-        other => panic!("unexpected error: {other:?}"),
-    }
+    let response: JsonRpcResponse = serde_json::from_value(
+        resolved.result.unwrap().unwrap(),
+    )
+    .unwrap();
+    assert_eq!(
+        response,
+        JsonRpcResponse::Error(JsonRpcErrorResponse {
+            jsonrpc: JsonRpcVersion::V2_0,
+            id: JsonRpcId::Number(1.into()),
+            error: json_error(-32000, "downstream failed"),
+        })
+    );
 }
 
 #[tokio::test]

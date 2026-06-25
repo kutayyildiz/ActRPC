@@ -13,11 +13,13 @@ use crate::{
 use actrpc_core::{
     InterceptionId,
     action::{RequestedActionRecord, ResolvedActionRecord},
+    error::ProtocolError,
     interception::{InterceptionPhase, InterceptionRequest, InterceptionResponse},
     json_rpc::{
         JsonRpcErrorResponse, JsonRpcMessage, JsonRpcResponse, JsonRpcSingleMessage, JsonRpcVersion,
     },
 };
+use crate::error::ActionHandlerError;
 use std::{sync::Arc, time::Duration};
 use tokio::time::timeout;
 
@@ -141,8 +143,15 @@ impl CallExecution {
             let mut total_actions = 0usize;
 
             loop {
-                let request =
-                    self.build_interception_request(&resolved_action_history, interception_id)?;
+                let invocation_ctx = ActionInvocationContext {
+                    interceptor_name: entry.name.clone(),
+                };
+
+                let request = self.build_interception_request(
+                    &resolved_action_history,
+                    interception_id,
+                    &invocation_ctx,
+                )?;
 
                 self.record_interceptor_request(&entry, &request)?;
 
@@ -191,10 +200,6 @@ impl CallExecution {
 
                 let mut round_actions = Vec::new();
 
-                let invocation_ctx = ActionInvocationContext {
-                    interceptor_name: entry.name.clone(),
-                };
-
                 for requested_action in response.actions {
                     let action_kind = requested_action.kind.clone();
 
@@ -204,18 +209,26 @@ impl CallExecution {
                         })
                     })?;
 
-                    let resolved = handler
-                        .handle(&request, requested_action, &invocation_ctx)
+                    match handler
+                        .handle(&request, requested_action.clone(), &invocation_ctx)
                         .await
-                        .map_err(|source| {
-                            OrchestratorError::Action(ActionError::HandlerFailed {
+                    {
+                        Ok(resolved) => {
+                            round_actions.push(resolved);
+                        }
+                        Err(source) => {
+                            round_actions.push(failed_action_record(
+                                &requested_action,
+                                &source,
+                            ));
+                            resolved_action_history.push(round_actions);
+                            return Err(OrchestratorError::Action(ActionError::HandlerFailed {
                                 interceptor: entry.name.clone(),
                                 action: action_kind,
                                 source,
-                            })
-                        })?;
-
-                    round_actions.push(resolved);
+                            }));
+                        }
+                    }
 
                     if self.call.rejection.is_rejected() {
                         return Ok(());
@@ -297,7 +310,14 @@ impl CallExecution {
         &self,
         resolved_action_history: &[Vec<ResolvedActionRecord>],
         interception_id: InterceptionId,
+        invocation_ctx: &ActionInvocationContext,
     ) -> Result<InterceptionRequest, OrchestratorError> {
+        let ctx = self
+            .call
+            .call_ctx()
+            .map(|call_ctx| call_ctx.filter_for_interceptor(&invocation_ctx.interceptor_name))
+            .unwrap_or_default();
+
         Ok(InterceptionRequest {
             origin: self.call.origin().clone(),
             target: self.call.target().clone(),
@@ -305,6 +325,7 @@ impl CallExecution {
             call_id: self.call.call_id(),
             interception_id,
             resolved_action_history: resolved_action_history.to_vec(),
+            ctx,
         })
     }
 
@@ -378,6 +399,19 @@ impl CallExecution {
                 error,
             }),
         )))
+    }
+}
+
+fn failed_action_record(
+    requested_action: &RequestedActionRecord,
+    source: &ActionHandlerError,
+) -> ResolvedActionRecord {
+    ResolvedActionRecord {
+        kind: requested_action.kind.clone(),
+        params: requested_action.params.clone(),
+        result: Err(ProtocolError::InvalidMessageDirection {
+            reason: source.to_string(),
+        }),
     }
 }
 

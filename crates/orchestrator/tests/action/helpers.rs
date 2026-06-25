@@ -45,6 +45,7 @@ pub(super) fn dummy_request() -> InterceptionRequest {
         call_id: CallId::new(),
         interception_id: InterceptionId::new(),
         resolved_action_history: vec![],
+        ctx: Default::default(),
     }
 }
 

@@ -1,4 +1,4 @@
-mod support;
+mod common;
 
 use actrpc_core::{
     action::ActionSpec,
@@ -16,8 +16,8 @@ use actrpc_interceptor::interceptors::policy::{
     },
 };
 use actrpc_orchestrator::{action::actions::reject_call::RejectCall, interceptor::Interceptor};
+use common::support::{default_target, external_origin, sample_request};
 use serde_json::json;
-use support::{default_target, external_origin, sample_request};
 
 #[tokio::test]
 async fn phase_fact_matches_outbound_only() {

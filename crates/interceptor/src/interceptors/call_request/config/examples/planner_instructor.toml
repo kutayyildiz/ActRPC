@@ -1,0 +1,14 @@
+version = 1
+
+[[rules]]
+name = "agent_invoke"
+provider = "agents"
+method = "invoke"
+prompt_field = "prompt"
+
+[rules.injection]
+append = """
+You are a planner agent.
+When you need to request calls, emit _actrpc_call_requests according to the configured schema.
+You may restrict subcalls by attaching dynamic_policy ctx when appropriate.
+"""

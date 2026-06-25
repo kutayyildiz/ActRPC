@@ -3,19 +3,19 @@ use actrpc_core::json_rpc::{
     JsonRpcSuccessResponse, JsonRpcVersion,
 };
 use actrpc_interceptor::interceptors::dynamic_policy::{
-    DynamicPolicyInterceptor, method_snapshot, new_component, provider::DynamicPolicyMethodProvider,
+    DynamicPolicyConfig, DynamicPolicyInterceptor, DynamicPolicyStore,
 };
 use actrpc_orchestrator::interceptor::Interceptor;
 use serde::Serialize;
 use std::{
     error::Error,
     io::{self, BufRead, Write},
+    path::PathBuf,
 };
 use tokio::runtime::Runtime;
 
 const INITIALIZE_METHOD: &str = actrpc_core::ACTRPC_INTERCEPTOR_INITIALIZE_METHOD;
 const INTERCEPT_METHOD: &str = actrpc_core::ACTRPC_INTERCEPTOR_INTERCEPT_METHOD;
-const PROVIDER_INITIALIZE_METHOD: &str = actrpc_core::ACTRPC_METHOD_PROVIDER_INITIALIZE_METHOD;
 
 fn main() {
     if let Err(error) = run() {
@@ -25,14 +25,44 @@ fn main() {
 }
 
 fn run() -> Result<(), Box<dyn Error>> {
-    let component = new_component();
-    serve_stdio(component.interceptor, component.provider)
+    let config = parse_config()?;
+    let store = DynamicPolicyStore::shared();
+    let interceptor = DynamicPolicyInterceptor::new(store, config);
+
+    serve_stdio(interceptor)
 }
 
-fn serve_stdio(
-    interceptor: DynamicPolicyInterceptor,
-    provider: DynamicPolicyMethodProvider,
-) -> Result<(), Box<dyn Error>> {
+fn parse_config() -> Result<DynamicPolicyConfig, Box<dyn Error>> {
+    let mut args = std::env::args().skip(1);
+    let mut config_path = None;
+
+    while let Some(arg) = args.next() {
+        match arg.as_str() {
+            "--config" | "-c" => {
+                let Some(path) = args.next() else {
+                    return Err("missing value for --config".into());
+                };
+                config_path = Some(PathBuf::from(path));
+            }
+            "--help" | "-h" => {
+                print_help();
+                std::process::exit(0);
+            }
+            other => return Err(format!("unknown argument: {other}").into()),
+        }
+    }
+
+    match config_path {
+        Some(path) => Ok(DynamicPolicyConfig::from_path(path)?),
+        None => Ok(DynamicPolicyConfig::default()),
+    }
+}
+
+fn print_help() {
+    eprintln!("actrpc-dynamic-policy-interceptor [--config <PATH>]");
+}
+
+fn serve_stdio(interceptor: DynamicPolicyInterceptor) -> Result<(), Box<dyn Error>> {
     let runtime = tokio::runtime::Builder::new_current_thread()
         .enable_all()
         .build()?;
@@ -47,7 +77,7 @@ fn serve_stdio(
             continue;
         }
 
-        let response = match handle_line(&runtime, &interceptor, &provider, &line) {
+        let response = match handle_line(&runtime, &interceptor, &line) {
             Ok(Some(response)) => response,
             Ok(None) => continue,
             Err(error_response) => error_response,
@@ -64,7 +94,6 @@ fn serve_stdio(
 fn handle_line(
     runtime: &Runtime,
     interceptor: &DynamicPolicyInterceptor,
-    provider: &DynamicPolicyMethodProvider,
     line: &str,
 ) -> Result<Option<JsonRpcMessage>, JsonRpcMessage> {
     let message = serde_json::from_str::<JsonRpcMessage>(line).map_err(|source| {
@@ -79,17 +108,13 @@ fn handle_line(
         return Err(json_rpc_error_message(
             JsonRpcId::Null,
             -32600,
-            "dynamic policy component only accepts single JSON-RPC requests".to_owned(),
+            "dynamic policy interceptor only accepts single JSON-RPC requests".to_owned(),
         ));
     };
 
     let response = match request.method.as_str() {
         INITIALIZE_METHOD => handle_initialize(runtime, interceptor, request),
         INTERCEPT_METHOD => handle_intercept(runtime, interceptor, request),
-        PROVIDER_INITIALIZE_METHOD => handle_provider_initialize(request),
-        "create_scope" | "release_scope" | "get_scope" | "list_scopes" => {
-            handle_provider_method(provider, request)
-        }
         method => Err(json_rpc_error_message(
             request.id,
             -32601,
@@ -155,35 +180,6 @@ fn handle_intercept(
                 -32000,
                 format!("intercept failed: {source}"),
             )
-        })?;
-
-    Ok(success_message(request.id, result))
-}
-
-fn handle_provider_initialize(request: JsonRpcRequest) -> Result<JsonRpcMessage, JsonRpcMessage> {
-    Ok(success_message(request.id, method_snapshot()))
-}
-
-fn handle_provider_method(
-    provider: &DynamicPolicyMethodProvider,
-    request: JsonRpcRequest,
-) -> Result<JsonRpcMessage, JsonRpcMessage> {
-    let params = request
-        .params
-        .map(serde_json::to_value)
-        .transpose()
-        .map_err(|source| {
-            json_rpc_error_message(
-                request.id.clone(),
-                -32602,
-                format!("failed to encode provider params: {source}"),
-            )
-        })?;
-
-    let result = provider
-        .handle_request(&request.method, params)
-        .map_err(|error| {
-            json_rpc_error_message(request.id.clone(), error.json_rpc_code(), error.to_string())
         })?;
 
     Ok(success_message(request.id, result))

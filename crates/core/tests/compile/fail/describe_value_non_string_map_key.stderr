@@ -6,11 +6,11 @@ error[E0277]: the trait bound `HashMap<i32, std::string::String>: DescribeValue`
   |
   = help: the following other types implement trait `DescribeValue`:
             ActionKind
+            CallContext
             CallId
             CallLineage
             CallRelation
             CurrentExecutionContext
             ExecutionContextQuery
             ExecutionContextQueryResult
-            HashSet<T>
           and $N others

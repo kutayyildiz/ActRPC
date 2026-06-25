@@ -1,4 +1,4 @@
-mod support;
+mod common;
 
 use actrpc_core::{
     action::{ActionKind, ResolvedActionRecord},
@@ -20,8 +20,8 @@ use actrpc_orchestrator::{
     },
     interceptor::Interceptor,
 };
+use common::support::{default_target, external_origin, sample_request};
 use serde_json::json;
-use support::{default_target, external_origin, sample_request};
 
 #[tokio::test]
 async fn no_matching_rule_emits_no_actions_and_stops() {
