@@ -16,7 +16,11 @@ pub mod runtime;
 pub use actrpc_core::CallId;
 pub use builder::OrchestratorBuilder;
 pub use destination::Destination;
-pub use endpoint::{EndpointCatalog, EndpointConfig, EndpointName};
+pub use endpoint::{
+    EndpointCapabilities, EndpointCatalog, EndpointCatalogError, EndpointConfig, EndpointEntry,
+    EndpointKind, EndpointName, JsonRpc2Mode, JsonRpc2RequestEndpoint, JsonRpc2SessionEndpoint,
+    ProtocolConfig, RestHttpEndpoint, test_catalog,
+};
 pub use orchestrator::Orchestrator;
 pub use transcript::{
     PROTOCOL_INTERCEPTOR_REQUEST, PROTOCOL_INTERCEPTOR_RESPONSE, PROTOCOL_METHOD_REQUEST,

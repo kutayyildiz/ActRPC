@@ -5,7 +5,9 @@ use crate::interceptors::call_request::{
 use actrpc_core::{
     InterceptorInitialization,
     action::{ActionDescriptor, ActionKind, RequestedAction, RequestedActionRecord},
-    interception::{InterceptionPhase, InterceptionRequest, InterceptionResponse, InterceptorContinuation},
+    interception::{
+        InterceptionPhase, InterceptionRequest, InterceptionResponse, InterceptorContinuation,
+    },
     json_rpc::{JsonRpcMessage, JsonRpcParams, JsonRpcSingleMessage},
 };
 use actrpc_orchestrator::{
@@ -31,14 +33,9 @@ impl CallRequestInstructor {
             return Ok(no_op());
         }
 
-        let Some(rule) = self
-            .config
-            .rules
-            .iter()
-            .find(|rule| {
-                rule.provider == request.target.provider && rule.method == request.target.method
-            })
-        else {
+        let Some(rule) = self.config.rules.iter().find(|rule| {
+            rule.provider == request.target.provider && rule.method == request.target.method
+        }) else {
             return Ok(no_op());
         };
 
@@ -71,7 +68,9 @@ impl CallRequestInstructor {
         );
 
         Ok(InterceptionResponse {
-            actions: vec![modify_params_action(Some(JsonRpcParams::Object(updated_map)))?],
+            actions: vec![modify_params_action(Some(JsonRpcParams::Object(
+                updated_map,
+            )))?],
             continuation: InterceptorContinuation::Stop,
         })
     }
@@ -129,7 +128,9 @@ fn no_op() -> InterceptionResponse {
     }
 }
 
-fn modify_params_action(params: Option<JsonRpcParams>) -> Result<RequestedActionRecord, CallRequestError> {
+fn modify_params_action(
+    params: Option<JsonRpcParams>,
+) -> Result<RequestedActionRecord, CallRequestError> {
     RequestedAction::<ModifyParams> {
         params: ModifyParamsParams { params },
     }

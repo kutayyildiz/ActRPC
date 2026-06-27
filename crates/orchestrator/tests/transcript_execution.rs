@@ -943,14 +943,8 @@ async fn build_factory(
 
     let endpoint_catalog = actrpc_orchestrator::EndpointCatalog::from_configs(
         vec![
-            actrpc_orchestrator::EndpointConfig {
-                name: endpoint_name.clone(),
-                target: dummy_target(),
-            },
-            actrpc_orchestrator::EndpointConfig {
-                name: nested_endpoint.clone(),
-                target: dummy_target(),
-            },
+            actrpc_orchestrator::EndpointConfig::legacy(endpoint_name.clone(), dummy_target()),
+            actrpc_orchestrator::EndpointConfig::legacy(nested_endpoint.clone(), dummy_target()),
         ],
         &[],
         &[],
@@ -968,6 +962,8 @@ async fn build_factory(
                 methods: vec![MethodInfo {
                     name: MethodName::from("sum"),
                     description: None,
+                    params_schema: None,
+                    result_schema: None,
                     info: json!({}),
                 }],
             },
@@ -979,6 +975,8 @@ async fn build_factory(
                 methods: vec![MethodInfo {
                     name: MethodName::from("nested_method"),
                     description: None,
+                    params_schema: None,
+                    result_schema: None,
                     info: json!({}),
                 }],
             },
@@ -1055,7 +1053,7 @@ fn response_message(result: serde_json::Value) -> JsonRpcMessage {
 fn dummy_target() -> TransportTarget {
     TransportTarget::Http(HttpTarget {
         url: "http://example.invalid/rpc".to_owned(),
-        headers: vec![],
+        headers: actrpc_transport::HeaderPairs::default(),
         timeout_ms: 1_000,
     })
 }

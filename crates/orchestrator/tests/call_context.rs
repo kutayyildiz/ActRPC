@@ -201,7 +201,15 @@ async fn interceptor_receives_filtered_ctx_through_pipeline() {
     assert_eq!(seen.len(), 1);
     assert_eq!(seen[0].ctx.shared, Some(json!({ "trace": "abc" })));
     assert_eq!(seen[0].ctx.private, Some(json!({ "private": true })));
-    assert!(seen[0].ctx.private.as_ref().unwrap().get("secret").is_none());
+    assert!(
+        seen[0]
+            .ctx
+            .private
+            .as_ref()
+            .unwrap()
+            .get("secret")
+            .is_none()
+    );
 }
 
 #[tokio::test]
@@ -291,7 +299,12 @@ async fn oversized_ctx_fails_call_method_deterministically() {
         actrpc_orchestrator::config::RuntimeConfig::default(),
     )
     .await
-    .create_root(ProviderName::from(TEST_PROVIDER), MethodName::from("sum"), None, "caller")
+    .create_root(
+        ProviderName::from(TEST_PROVIDER),
+        MethodName::from("sum"),
+        None,
+        "caller",
+    )
     .unwrap();
 
     let err = execution.run().await.unwrap_err();
@@ -323,7 +336,12 @@ async fn oversized_serialized_ctx_fails_call_method_deterministically() {
         actrpc_orchestrator::config::RuntimeConfig::default(),
     )
     .await
-    .create_root(ProviderName::from(TEST_PROVIDER), MethodName::from("sum"), None, "caller")
+    .create_root(
+        ProviderName::from(TEST_PROVIDER),
+        MethodName::from("sum"),
+        None,
+        "caller",
+    )
     .unwrap();
 
     let err = execution.run().await.unwrap_err();
@@ -365,12 +383,20 @@ async fn fail_fast_stops_after_first_failed_action() {
     .await;
 
     let execution = factory
-        .create_root(ProviderName::from(TEST_PROVIDER), MethodName::from("sum"), Some(JsonRpcParams::Array(vec![json!(1)])), "caller")
+        .create_root(
+            ProviderName::from(TEST_PROVIDER),
+            MethodName::from("sum"),
+            Some(JsonRpcParams::Array(vec![json!(1)])),
+            "caller",
+        )
         .unwrap();
 
     let transcript = execution.transcript();
     let err = execution.run().await.unwrap_err();
-    assert!(matches!(err, OrchestratorError::Action(ActionError::HandlerFailed { .. })));
+    assert!(matches!(
+        err,
+        OrchestratorError::Action(ActionError::HandlerFailed { .. })
+    ));
 
     // Outbound action failure stops the round before downstream send or later actions.
     assert!(client.sent().is_empty());
@@ -398,7 +424,10 @@ impl QueuedInterceptor {
 impl Interceptor for QueuedInterceptor {
     fn initialize<'a>(
         &'a self,
-    ) -> InterceptorFuture<'a, Result<InterceptorInitialization, actrpc_orchestrator::error::InterceptorRuntimeError>>
+    ) -> InterceptorFuture<
+        'a,
+        Result<InterceptorInitialization, actrpc_orchestrator::error::InterceptorRuntimeError>,
+    >
     where
         Self: 'a,
     {
@@ -408,7 +437,10 @@ impl Interceptor for QueuedInterceptor {
     fn intercept<'a>(
         &'a self,
         request: &'a InterceptionRequest,
-    ) -> InterceptorFuture<'a, Result<InterceptionResponse, actrpc_orchestrator::error::InterceptorRuntimeError>>
+    ) -> InterceptorFuture<
+        'a,
+        Result<InterceptionResponse, actrpc_orchestrator::error::InterceptorRuntimeError>,
+    >
     where
         Self: 'a,
     {
@@ -442,7 +474,10 @@ impl CtxProbeInterceptor {
 impl Interceptor for CtxProbeInterceptor {
     fn initialize<'a>(
         &'a self,
-    ) -> InterceptorFuture<'a, Result<InterceptorInitialization, actrpc_orchestrator::error::InterceptorRuntimeError>>
+    ) -> InterceptorFuture<
+        'a,
+        Result<InterceptorInitialization, actrpc_orchestrator::error::InterceptorRuntimeError>,
+    >
     where
         Self: 'a,
     {
@@ -452,7 +487,10 @@ impl Interceptor for CtxProbeInterceptor {
     fn intercept<'a>(
         &'a self,
         request: &'a InterceptionRequest,
-    ) -> InterceptorFuture<'a, Result<InterceptionResponse, actrpc_orchestrator::error::InterceptorRuntimeError>>
+    ) -> InterceptorFuture<
+        'a,
+        Result<InterceptionResponse, actrpc_orchestrator::error::InterceptorRuntimeError>,
+    >
     where
         Self: 'a,
     {
@@ -567,12 +605,7 @@ async fn test_factory(
     response: JsonRpcMessage,
     runtime: actrpc_orchestrator::config::RuntimeConfig,
 ) -> Arc<CallExecutionFactory> {
-    test_factory_with_client(
-        catalog,
-        Arc::new(RecordingClient::new(response)),
-        runtime,
-    )
-    .await
+    test_factory_with_client(catalog, Arc::new(RecordingClient::new(response)), runtime).await
 }
 
 async fn test_factory_with_client(
@@ -584,10 +617,8 @@ async fn test_factory_with_client(
         client: client as Arc<dyn JsonRpcClient<Error = TransportError>>,
     };
     let endpoint_name = actrpc_orchestrator::EndpointName::new("test_ep");
-    let ep_config = actrpc_orchestrator::EndpointConfig {
-        name: endpoint_name.clone(),
-        target: dummy_target(),
-    };
+    let ep_config =
+        actrpc_orchestrator::EndpointConfig::legacy(endpoint_name.clone(), dummy_target());
     let endpoint_catalog = actrpc_orchestrator::EndpointCatalog::from_configs(
         vec![ep_config],
         &[],
@@ -598,17 +629,20 @@ async fn test_factory_with_client(
     .await
     .unwrap();
 
-    let method_source = MethodSourceConfig::JsonRpc(actrpc_orchestrator::method::JsonRpcMethodSourceConfig {
-        provider: ProviderName::from(TEST_PROVIDER),
-        endpoint: endpoint_name,
-        discovery: actrpc_orchestrator::method::JsonRpcMethodDiscoveryConfig::Static {
-            methods: vec![MethodInfo {
-                name: MethodName::from("sum"),
-                description: None,
-                info: json!({}),
-            }],
-        },
-    });
+    let method_source =
+        MethodSourceConfig::JsonRpc(actrpc_orchestrator::method::JsonRpcMethodSourceConfig {
+            provider: ProviderName::from(TEST_PROVIDER),
+            endpoint: endpoint_name,
+            discovery: actrpc_orchestrator::method::JsonRpcMethodDiscoveryConfig::Static {
+                methods: vec![MethodInfo {
+                    name: MethodName::from("sum"),
+                    description: None,
+                    params_schema: None,
+                    result_schema: None,
+                    info: json!({}),
+                }],
+            },
+        });
 
     let method_catalog = MethodCatalog::from_configs(vec![method_source], &endpoint_catalog)
         .await
@@ -638,7 +672,7 @@ fn response_message(result: serde_json::Value) -> JsonRpcMessage {
 fn dummy_target() -> TransportTarget {
     TransportTarget::Http(HttpTarget {
         url: "http://example.invalid/rpc".to_owned(),
-        headers: vec![],
+        headers: actrpc_transport::HeaderPairs::default(),
         timeout_ms: 1_000,
     })
 }

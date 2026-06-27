@@ -795,4 +795,3 @@ async fn executor_does_not_match_when_array_param_order_differs() {
     assert_eq!(results[0]["error"], "missing CallMethod result");
     assert!(results[0].get("response").is_none());
 }
-

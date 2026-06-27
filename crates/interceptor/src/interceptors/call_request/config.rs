@@ -71,10 +71,11 @@ impl InstructorConfig {
     pub fn from_path(path: impl AsRef<Path>) -> Result<Self, CallRequestError> {
         let path = path.as_ref();
         let format = CallRequestConfigFormat::from_path(path)?;
-        let text = std::fs::read_to_string(path).map_err(|source| CallRequestError::ConfigRead {
-            path: path.to_path_buf(),
-            source,
-        })?;
+        let text =
+            std::fs::read_to_string(path).map_err(|source| CallRequestError::ConfigRead {
+                path: path.to_path_buf(),
+                source,
+            })?;
         Self::from_str_with_format(&text, format, path)
     }
 
@@ -152,10 +153,11 @@ impl ExecutorConfig {
     pub fn from_path(path: impl AsRef<Path>) -> Result<Self, CallRequestError> {
         let path = path.as_ref();
         let format = CallRequestConfigFormat::from_path(path)?;
-        let text = std::fs::read_to_string(path).map_err(|source| CallRequestError::ConfigRead {
-            path: path.to_path_buf(),
-            source,
-        })?;
+        let text =
+            std::fs::read_to_string(path).map_err(|source| CallRequestError::ConfigRead {
+                path: path.to_path_buf(),
+                source,
+            })?;
         Self::from_str_with_format(&text, format, path)
     }
 

@@ -54,6 +54,8 @@ impl StaticMethodProvider {
             methods: vec![MethodInfo {
                 name: MethodName::from(method),
                 description: None,
+                params_schema: None,
+                result_schema: None,
                 info: json!({}),
             }],
             response,

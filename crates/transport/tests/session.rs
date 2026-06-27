@@ -113,7 +113,7 @@ async fn test_default_session_provider_http_returns_unsupported() {
     let provider = DefaultJsonRpcSessionProvider::new();
     let target = TransportTarget::Http(HttpTarget {
         url: "http://example.invalid".to_owned(),
-        headers: vec![],
+        headers: actrpc_transport::HeaderPairs::default(),
         timeout_ms: 1000,
     });
     match provider.get_session(&target).await {

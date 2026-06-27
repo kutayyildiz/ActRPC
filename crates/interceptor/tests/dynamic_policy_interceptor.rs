@@ -646,4 +646,3 @@ async fn root_inbound_cleanup_removes_remaining_scopes() {
     assert!(component.store.get_scope(child_scope).is_none());
     assert!(component.store.scope_for_call(child).is_none());
 }
-

@@ -112,7 +112,7 @@ async fn test_default_provider_clear_cache_forces_recreate() {
 fn http_target() -> TransportTarget {
     TransportTarget::Http(HttpTarget {
         url: "http://127.0.0.1:8080/rpc".to_owned(),
-        headers: vec![],
+        headers: actrpc_transport::HeaderPairs::default(),
         timeout_ms: 1_000,
     })
 }

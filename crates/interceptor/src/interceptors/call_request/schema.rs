@@ -38,13 +38,13 @@ pub fn parse_target(target: &str) -> Result<(ProviderName, MethodName), CallRequ
 
 fn invalid_target(target: &str) -> CallRequestError {
     CallRequestError::InvalidCallRequest {
-        message: format!(
-            "target must use non-empty provider::method format, got {target:?}"
-        ),
+        message: format!("target must use non-empty provider::method format, got {target:?}"),
     }
 }
 
-pub fn params_to_json_rpc(params: Option<Value>) -> Result<Option<JsonRpcParams>, CallRequestError> {
+pub fn params_to_json_rpc(
+    params: Option<Value>,
+) -> Result<Option<JsonRpcParams>, CallRequestError> {
     match params {
         None => Ok(None),
         Some(Value::Object(map)) => Ok(Some(JsonRpcParams::Object(map))),
@@ -131,9 +131,10 @@ pub fn canonicalize_json_value(value: Value) -> Value {
 pub fn canonical_executed_call_request_key(
     request: &ExecutedCallRequest,
 ) -> Result<String, CallRequestError> {
-    let value = serde_json::to_value(request).map_err(|source| CallRequestError::InvalidCallRequest {
-        message: format!("failed to serialize executed call request: {source}"),
-    })?;
+    let value =
+        serde_json::to_value(request).map_err(|source| CallRequestError::InvalidCallRequest {
+            message: format!("failed to serialize executed call request: {source}"),
+        })?;
 
     let canonical = canonicalize_json_value(value);
 

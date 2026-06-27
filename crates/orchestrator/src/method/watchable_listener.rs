@@ -1,5 +1,5 @@
 use crate::{
-    endpoint::EndpointCatalog,
+    endpoint::{EndpointCatalog, EndpointCatalogError},
     error::MethodCatalogError,
     method::{catalog::MethodCatalog, method_provider_changed::try_parse_method_provider_changed},
 };
@@ -22,15 +22,22 @@ pub fn spawn_watchable_listeners(
 
     let mut handles = Vec::new();
     for endpoint_name in endpoint_names {
-        let Some(endpoint) = endpoints.get(&endpoint_name) else {
-            continue;
-        };
         let provider_for_error = catalog
             .providers()
             .find(|p| p.is_watchable() && p.endpoint() == Some(&endpoint_name))
             .map(|p| p.name().clone());
-        let mut receiver = endpoint.subscribe().map_err(|_| {
-            MethodCatalogError::EndpointDoesNotSupportSession {
+        let mut receiver = endpoints
+            .get_json_rpc2_session(&endpoint_name)
+            .map_err(|source| {
+                map_session_error(
+                    source,
+                    endpoint_name.clone(),
+                    provider_for_error.clone(),
+                    catalog.clone(),
+                )
+            })?
+            .subscribe()
+            .map_err(|_| MethodCatalogError::EndpointDoesNotSupportSession {
                 endpoint: endpoint_name.clone(),
                 provider: provider_for_error.unwrap_or_else(|| {
                     catalog
@@ -40,8 +47,7 @@ pub fn spawn_watchable_listeners(
                         .name()
                         .clone()
                 }),
-            }
-        })?;
+            })?;
         let catalog = catalog.clone();
         let endpoint_name = endpoint_name.clone();
         handles.push(tokio::spawn(async move {
@@ -59,13 +65,46 @@ pub fn spawn_watchable_listeners(
                             )
                             .await;
                     }
-                    Ok(JsonRpcSessionEvent::Closed) => break,
-                    Err(tokio::sync::broadcast::error::RecvError::Closed) => break,
-                    Err(tokio::sync::broadcast::error::RecvError::Lagged(_)) => continue,
+                    Ok(JsonRpcSessionEvent::Closed) | Err(_) => break,
                 }
             }
         }));
     }
 
     Ok(handles)
+}
+
+fn map_session_error(
+    source: EndpointCatalogError,
+    endpoint: crate::endpoint::EndpointName,
+    provider: Option<crate::method::ProviderName>,
+    catalog: Arc<MethodCatalog>,
+) -> MethodCatalogError {
+    match source {
+        EndpointCatalogError::NotFound { .. } => MethodCatalogError::UnknownEndpoint {
+            endpoint,
+            provider: provider.unwrap_or_else(|| {
+                catalog
+                    .providers()
+                    .next()
+                    .expect("catalog has watchable provider")
+                    .name()
+                    .clone()
+            }),
+        },
+        EndpointCatalogError::SessionRequired { .. }
+        | EndpointCatalogError::KindMismatch { .. } => {
+            MethodCatalogError::EndpointDoesNotSupportSession {
+                endpoint,
+                provider: provider.unwrap_or_else(|| {
+                    catalog
+                        .providers()
+                        .next()
+                        .expect("catalog has watchable provider")
+                        .name()
+                        .clone()
+                }),
+            }
+        }
+    }
 }

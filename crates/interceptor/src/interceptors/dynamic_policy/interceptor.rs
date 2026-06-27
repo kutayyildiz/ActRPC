@@ -12,7 +12,9 @@ use actrpc_core::{
         ActionDescriptor, ActionKind, ActionSpec, RequestedAction, RequestedActionRecord,
         ResolvedActionRecord,
     },
-    interception::{InterceptionPhase, InterceptionRequest, InterceptionResponse, InterceptorContinuation},
+    interception::{
+        InterceptionPhase, InterceptionRequest, InterceptionResponse, InterceptorContinuation,
+    },
     json_rpc::JsonRpcError,
 };
 use actrpc_orchestrator::{
@@ -26,10 +28,7 @@ use actrpc_orchestrator::{
     },
     interceptor::{Interceptor, InterceptorFuture},
 };
-use std::{
-    collections::HashMap,
-    sync::Arc,
-};
+use std::{collections::HashMap, sync::Arc};
 
 const REJECT_CODE: i32 = -32011;
 
@@ -164,12 +163,12 @@ impl DynamicPolicyInterceptor {
         let review_results = collect_request_review_results(request)?;
 
         if let Some(parent_scope_id) = parent_scope_id {
-            let parent_scope = self
-                .store
-                .get_scope(parent_scope_id)
-                .ok_or(DynamicPolicyError::ScopeNotFound {
-                    scope_id: parent_scope_id,
-                })?;
+            let parent_scope =
+                self.store
+                    .get_scope(parent_scope_id)
+                    .ok_or(DynamicPolicyError::ScopeNotFound {
+                        scope_id: parent_scope_id,
+                    })?;
 
             if !DynamicPolicyStore::allows_target(&parent_scope, &current.target) {
                 return Ok(reject_response()?);
@@ -191,11 +190,7 @@ impl DynamicPolicyInterceptor {
             }
 
             if let Some(review_result) = review_results.get(&review_key) {
-                return self.finalize_review(
-                    review_result,
-                    current,
-                    &ctx.allowed_method_targets,
-                );
+                return self.finalize_review(review_result, current, &ctx.allowed_method_targets);
             }
 
             return Ok(InterceptionResponse {
@@ -235,12 +230,12 @@ impl DynamicPolicyInterceptor {
         current: &CurrentExecutionContext,
         parent_scope_id: ScopeId,
     ) -> Result<InterceptionResponse, DynamicPolicyError> {
-        let parent_scope = self
-            .store
-            .get_scope(parent_scope_id)
-            .ok_or(DynamicPolicyError::ScopeNotFound {
-                scope_id: parent_scope_id,
-            })?;
+        let parent_scope =
+            self.store
+                .get_scope(parent_scope_id)
+                .ok_or(DynamicPolicyError::ScopeNotFound {
+                    scope_id: parent_scope_id,
+                })?;
 
         if DynamicPolicyStore::allows_target(&parent_scope, &current.target) {
             self.store.bind_call(current.call_id, parent_scope_id);
@@ -337,7 +332,9 @@ fn review_key_for_call(call_id: CallId) -> String {
     format!("dynamic_policy:detached:{call_id}")
 }
 
-fn decode_dynamic_policy_context(value: &serde_json::Value) -> Result<DynamicPolicyContext, DynamicPolicyError> {
+fn decode_dynamic_policy_context(
+    value: &serde_json::Value,
+) -> Result<DynamicPolicyContext, DynamicPolicyError> {
     serde_json::from_value(value.clone()).map_err(|source| DynamicPolicyError::InvalidContext {
         message: source.to_string(),
     })
@@ -360,10 +357,8 @@ fn collect_query_state(request: &InterceptionRequest) -> Result<QueryState, Dyna
             let params = decode_query_params(action)?;
             let result = decode_query_result(action)?;
 
-            if let (
-                ExecutionContextQuery::Current,
-                ExecutionContextQueryResult::Current(current),
-            ) = (params.query, result)
+            if let (ExecutionContextQuery::Current, ExecutionContextQueryResult::Current(current)) =
+                (params.query, result)
             {
                 state.current = Some(current);
             }
@@ -421,27 +416,35 @@ fn decode_query_result(
     })
 }
 
-fn decode_review_params(action: &ResolvedActionRecord) -> Result<RequestReviewParams, DynamicPolicyError> {
+fn decode_review_params(
+    action: &ResolvedActionRecord,
+) -> Result<RequestReviewParams, DynamicPolicyError> {
     let Some(value) = &action.params else {
         return Err(DynamicPolicyError::InvalidReviewResult {
             message: "request_review action is missing params".to_owned(),
         });
     };
 
-    serde_json::from_value(value.clone()).map_err(|source| DynamicPolicyError::InvalidReviewResult {
-        message: format!("failed to decode request_review params: {source}"),
+    serde_json::from_value(value.clone()).map_err(|source| {
+        DynamicPolicyError::InvalidReviewResult {
+            message: format!("failed to decode request_review params: {source}"),
+        }
     })
 }
 
-fn decode_review_result(action: &ResolvedActionRecord) -> Result<RequestReviewResult, DynamicPolicyError> {
+fn decode_review_result(
+    action: &ResolvedActionRecord,
+) -> Result<RequestReviewResult, DynamicPolicyError> {
     let Ok(Some(value)) = &action.result else {
         return Err(DynamicPolicyError::InvalidReviewResult {
             message: "request_review action did not resolve successfully".to_owned(),
         });
     };
 
-    serde_json::from_value(value.clone()).map_err(|source| DynamicPolicyError::InvalidReviewResult {
-        message: format!("failed to decode request_review result: {source}"),
+    serde_json::from_value(value.clone()).map_err(|source| {
+        DynamicPolicyError::InvalidReviewResult {
+            message: format!("failed to decode request_review result: {source}"),
+        }
     })
 }
 

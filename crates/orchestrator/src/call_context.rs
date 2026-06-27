@@ -1,10 +1,11 @@
 use crate::error::ActionExecutionError;
-use actrpc_core::{
-    CallContext, MAX_CALL_CONTEXT_BYTES, MAX_INTERCEPTOR_CTX_ENTRIES,
-};
 use actrpc_core::action::ActionKind;
+use actrpc_core::{CallContext, MAX_CALL_CONTEXT_BYTES, MAX_INTERCEPTOR_CTX_ENTRIES};
 
-pub fn validate_call_context(ctx: &CallContext, action: ActionKind) -> Result<(), ActionExecutionError> {
+pub fn validate_call_context(
+    ctx: &CallContext,
+    action: ActionKind,
+) -> Result<(), ActionExecutionError> {
     if ctx.interceptors.len() > MAX_INTERCEPTOR_CTX_ENTRIES {
         return Err(ActionExecutionError::InvalidState {
             message: format!(

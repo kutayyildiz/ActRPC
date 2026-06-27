@@ -2,14 +2,20 @@ use crate::interceptors::call_request::{
     config::ExecutorConfig,
     error::CallRequestError,
     schema::{
-        CallRequest, canonical_executed_call_request_key, executed_call_request_from_call_method_params,
-        executed_call_request_from_call_request, params_to_json_rpc, parse_target,
+        CallRequest, canonical_executed_call_request_key,
+        executed_call_request_from_call_method_params, executed_call_request_from_call_request,
+        params_to_json_rpc, parse_target,
     },
 };
 use actrpc_core::{
     InterceptorInitialization,
-    action::{ActionDescriptor, ActionKind, ActionSpec, RequestedAction, RequestedActionRecord, ResolvedActionRecord},
-    interception::{InterceptionPhase, InterceptionRequest, InterceptionResponse, InterceptorContinuation},
+    action::{
+        ActionDescriptor, ActionKind, ActionSpec, RequestedAction, RequestedActionRecord,
+        ResolvedActionRecord,
+    },
+    interception::{
+        InterceptionPhase, InterceptionRequest, InterceptionResponse, InterceptorContinuation,
+    },
     json_rpc::{JsonRpcMessage, JsonRpcResponse, JsonRpcSingleMessage},
 };
 use actrpc_orchestrator::{
@@ -62,7 +68,11 @@ impl CallRequestExecutor {
         let call_requests = match parse_call_requests(field_value) {
             Ok(requests) => requests,
             Err(error) => {
-                return Ok(error_modify_result(result_value, &self.config.results_field, error)?);
+                return Ok(error_modify_result(
+                    result_value,
+                    &self.config.results_field,
+                    error,
+                )?);
             }
         };
 
@@ -179,8 +189,10 @@ fn build_call_results(
         .map(|call_request| {
             let executed = executed_call_request_from_call_request(call_request);
             let key = canonical_executed_call_request_key(&executed)?;
-            let request = serde_json::to_value(&executed).map_err(|source| CallRequestError::InvalidCallRequest {
-                message: format!("failed to serialize executed call request: {source}"),
+            let request = serde_json::to_value(&executed).map_err(|source| {
+                CallRequestError::InvalidCallRequest {
+                    message: format!("failed to serialize executed call request: {source}"),
+                }
             })?;
 
             match record_queues.get_mut(&key).and_then(VecDeque::pop_front) {
@@ -194,14 +206,18 @@ fn build_call_results(
         .collect()
 }
 
-fn record_to_result_entry(request: &Value, record: &ResolvedActionRecord) -> Result<Value, CallRequestError> {
+fn record_to_result_entry(
+    request: &Value,
+    record: &ResolvedActionRecord,
+) -> Result<Value, CallRequestError> {
     match &record.result {
         Ok(Some(value)) => {
-            let response: JsonRpcResponse = serde_json::from_value(value.clone()).map_err(|source| {
-                CallRequestError::InvalidCallRequest {
-                    message: format!("CallMethod result is not a JSON-RPC response: {source}"),
-                }
-            })?;
+            let response: JsonRpcResponse =
+                serde_json::from_value(value.clone()).map_err(|source| {
+                    CallRequestError::InvalidCallRequest {
+                        message: format!("CallMethod result is not a JSON-RPC response: {source}"),
+                    }
+                })?;
 
             let response_value = serde_json::to_value(response).map_err(|source| {
                 CallRequestError::InvalidCallRequest {
@@ -243,11 +259,7 @@ fn error_modify_result(
     results_field: &str,
     message: String,
 ) -> Result<InterceptionResponse, CallRequestError> {
-    let updated = merge_results(
-        original,
-        results_field,
-        vec![json!({ "error": message })],
-    );
+    let updated = merge_results(original, results_field, vec![json!({ "error": message })]);
 
     Ok(InterceptionResponse {
         actions: vec![modify_result_action(updated)?],
@@ -255,7 +267,9 @@ fn error_modify_result(
     })
 }
 
-fn build_call_method_action(call_request: &CallRequest) -> Result<RequestedActionRecord, CallRequestError> {
+fn build_call_method_action(
+    call_request: &CallRequest,
+) -> Result<RequestedActionRecord, CallRequestError> {
     let (provider, method) = parse_target(&call_request.target)?;
     let params = params_to_json_rpc(call_request.params.clone())?;
 

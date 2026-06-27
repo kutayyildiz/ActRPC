@@ -83,7 +83,7 @@ fn build_headers(target: &HttpTarget) -> Result<HeaderMap, TransportError> {
     headers.insert(CONTENT_TYPE, HeaderValue::from_static("application/json"));
     headers.insert(ACCEPT, HeaderValue::from_static("application/json"));
 
-    for (name, value) in &target.headers {
+    for (name, value) in target.headers.iter() {
         let header_name =
             HeaderName::from_str(name).map_err(|source| TransportError::ClientInit {
                 message: format!("invalid HTTP header name '{name}': {source}"),

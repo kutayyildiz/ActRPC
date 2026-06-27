@@ -40,6 +40,12 @@ pub enum ConfigError {
     #[error("duplicate endpoint config: {name}")]
     DuplicateEndpoint { name: EndpointName },
 
+    #[error("endpoint requirement conflict for {endpoint}: {message}")]
+    EndpointRequirementConflict {
+        endpoint: EndpointName,
+        message: String,
+    },
+
     #[error("{config_path} must be greater than 0, got {value}")]
     InvalidRuntimeLimit { config_path: String, value: u64 },
 }

@@ -1,4 +1,4 @@
-use crate::framing::StreamFraming;
+use crate::{framing::StreamFraming, sensitive_headers::HeaderPairs};
 use serde::{Deserialize, Serialize};
 
 #[derive(Debug, Clone, PartialEq, Eq, Hash, Serialize, Deserialize)]
@@ -87,10 +87,11 @@ pub enum LocalIpcNamespace {
 #[derive(Debug, Clone, PartialEq, Eq, Hash, Serialize, Deserialize)]
 #[serde(deny_unknown_fields)]
 pub struct HttpTarget {
+    #[serde(alias = "base_url")]
     pub url: String,
 
     #[serde(default)]
-    pub headers: Vec<(String, String)>,
+    pub headers: HeaderPairs,
 
     #[serde(default = "default_http_timeout_ms")]
     pub timeout_ms: u64,

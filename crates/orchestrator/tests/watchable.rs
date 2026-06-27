@@ -30,6 +30,8 @@ fn method_a() -> MethodInfo {
     MethodInfo {
         name: MethodName::from("method_a"),
         description: None,
+        params_schema: None,
+        result_schema: None,
         info: json!({}),
     }
 }
@@ -38,6 +40,8 @@ fn method_b() -> MethodInfo {
     MethodInfo {
         name: MethodName::from("method_b"),
         description: None,
+        params_schema: None,
+        result_schema: None,
         info: json!({}),
     }
 }
@@ -97,12 +101,18 @@ impl JsonRpcSession for FakeJsonRpcSession {
     ) -> JsonRpcSessionFuture<'a, Result<JsonRpcResponse, Self::Error>> {
         let responses = self.responses.lock().unwrap().clone();
         Box::pin(async move {
-            responses
-                .get(&request.method)
-                .cloned()
-                .ok_or_else(|| TransportError::Internal {
+            let Some(mut response) = responses.get(&request.method).cloned() else {
+                return Err(TransportError::Internal {
                     message: format!("no queued response for method '{}'", request.method),
-                })
+                });
+            };
+
+            match &mut response {
+                JsonRpcResponse::Success(success) => success.id = request.id.clone(),
+                JsonRpcResponse::Error(error) => error.id = request.id.clone(),
+            }
+
+            Ok(response)
         })
     }
 
@@ -150,10 +160,39 @@ impl JsonRpcClient for QueuedClient {
 
     fn send<'a>(
         &'a self,
-        _message: actrpc_core::json_rpc::JsonRpcMessage,
+        message: actrpc_core::json_rpc::JsonRpcMessage,
     ) -> JsonRpcClientFuture<'a, Result<actrpc_core::json_rpc::JsonRpcMessage, Self::Error>> {
-        let response = self.response.clone();
-        Box::pin(async move { Ok(response) })
+        let template = self.response.clone();
+        Box::pin(async move {
+            let actrpc_core::json_rpc::JsonRpcMessage::Single(
+                actrpc_core::json_rpc::JsonRpcSingleMessage::Request(request),
+            ) = message
+            else {
+                return Ok(template);
+            };
+
+            let actrpc_core::json_rpc::JsonRpcMessage::Single(
+                actrpc_core::json_rpc::JsonRpcSingleMessage::Response(mut response),
+            ) = template
+            else {
+                return Err(TransportError::Internal {
+                    message: "queued client expected response template".to_owned(),
+                });
+            };
+
+            match &mut response {
+                actrpc_core::json_rpc::JsonRpcResponse::Success(success) => {
+                    success.id = request.id;
+                }
+                actrpc_core::json_rpc::JsonRpcResponse::Error(error) => {
+                    error.id = request.id;
+                }
+            }
+
+            Ok(actrpc_core::json_rpc::JsonRpcMessage::Single(
+                actrpc_core::json_rpc::JsonRpcSingleMessage::Response(response),
+            ))
+        })
     }
 }
 
@@ -219,7 +258,7 @@ fn tcp_target() -> TransportTarget {
 fn http_target() -> TransportTarget {
     TransportTarget::Http(HttpTarget {
         url: "http://example.invalid/rpc".to_owned(),
-        headers: vec![],
+        headers: actrpc_transport::HeaderPairs::default(),
         timeout_ms: 1_000,
     })
 }
@@ -261,10 +300,7 @@ async fn build_watchable_catalog(
     let ep_name = EndpointName::from(endpoint_name);
     let methods = vec![watchable_method_config(provider_name, endpoint_name)];
     let endpoint_catalog = EndpointCatalog::from_configs(
-        vec![EndpointConfig {
-            name: ep_name.clone(),
-            target,
-        }],
+        vec![EndpointConfig::legacy(ep_name.clone(), target)],
         &methods,
         &[],
         &NoopClientProvider,
@@ -305,10 +341,10 @@ fn changed_notification(provider: &str, version: Option<&str>) -> JsonRpcNotific
 async fn watchable_on_http_endpoint_fails_at_build() {
     let methods = vec![watchable_method_config("agent_tools", "agent")];
     let result = EndpointCatalog::from_configs(
-        vec![EndpointConfig {
-            name: EndpointName::from("agent"),
-            target: http_target(),
-        }],
+        vec![EndpointConfig::legacy(
+            EndpointName::from("agent"),
+            http_target(),
+        )],
         &methods,
         &[],
         &NoopClientProvider,
@@ -333,10 +369,10 @@ async fn endpoint_catalog_builds_session_for_watchable_endpoint() {
     let methods = vec![watchable_method_config("agent_tools", "agent")];
     let session = FakeJsonRpcSession::new();
     let catalog = EndpointCatalog::from_configs(
-        vec![EndpointConfig {
-            name: EndpointName::from("agent"),
-            target: tcp_target(),
-        }],
+        vec![EndpointConfig::legacy(
+            EndpointName::from("agent"),
+            tcp_target(),
+        )],
         &methods,
         &[],
         &NoopClientProvider,
@@ -345,8 +381,10 @@ async fn endpoint_catalog_builds_session_for_watchable_endpoint() {
     .await
     .unwrap();
 
-    let endpoint = catalog.get(&EndpointName::from("agent")).unwrap();
-    assert!(endpoint.session_capable());
+    let endpoint = catalog
+        .get_json_rpc2_session(&EndpointName::from("agent"))
+        .unwrap();
+    assert!(endpoint.subscribe().is_ok());
 }
 
 #[tokio::test]
@@ -441,10 +479,10 @@ async fn non_watchable_provider_does_not_refresh_on_notification() {
         )),
     );
     let endpoint_catalog = EndpointCatalog::from_configs(
-        vec![EndpointConfig {
-            name: EndpointName::from("agent"),
-            target: tcp_target(),
-        }],
+        vec![EndpointConfig::legacy(
+            EndpointName::from("agent"),
+            tcp_target(),
+        )],
         &methods,
         &[],
         &QueuedClientProvider::new(init_response),

@@ -125,13 +125,20 @@ impl InterceptorCatalog {
             }
 
             let endpoint = endpoint_catalog
-                .get(&config.endpoint)
-                .ok_or_else(|| {
-                    OrchestratorError::Interceptor(InterceptorError::UnknownEndpoint {
-                        name: config.endpoint.as_str().to_owned(),
+                .get_json_rpc2(&config.endpoint)
+                .map_err(|source| {
+                    OrchestratorError::Interceptor(match source {
+                        crate::endpoint::EndpointCatalogError::NotFound { .. } => {
+                            InterceptorError::UnknownEndpoint {
+                                name: config.endpoint.as_str().to_owned(),
+                            }
+                        }
+                        other => InterceptorError::EndpointLookup {
+                            name: config.endpoint.as_str().to_owned(),
+                            message: other.to_string(),
+                        },
                     })
-                })?
-                .clone();
+                })?;
 
             let interceptor: Arc<dyn Interceptor> =
                 Arc::new(JsonRpcBackedInterceptor::new(endpoint));

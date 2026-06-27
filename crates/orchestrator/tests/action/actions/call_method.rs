@@ -62,6 +62,8 @@ impl StaticMethodProvider {
             methods: vec![MethodInfo {
                 name: MethodName::from("test_method"),
                 description: None,
+                params_schema: None,
+                result_schema: None,
                 info: json!({}),
             }],
             response,
@@ -161,10 +163,8 @@ async fn call_method_returns_success_result() {
         .await
         .unwrap();
 
-    let response: JsonRpcResponse = serde_json::from_value(
-        resolved.result.unwrap().unwrap(),
-    )
-    .unwrap();
+    let response: JsonRpcResponse =
+        serde_json::from_value(resolved.result.unwrap().unwrap()).unwrap();
     assert_eq!(
         response,
         JsonRpcResponse::Success(JsonRpcSuccessResponse {
@@ -205,10 +205,8 @@ async fn call_method_maps_json_rpc_error_response_to_resolved_json_rpc_response(
         .await
         .unwrap();
 
-    let response: JsonRpcResponse = serde_json::from_value(
-        resolved.result.unwrap().unwrap(),
-    )
-    .unwrap();
+    let response: JsonRpcResponse =
+        serde_json::from_value(resolved.result.unwrap().unwrap()).unwrap();
     assert_eq!(
         response,
         JsonRpcResponse::Error(JsonRpcErrorResponse {

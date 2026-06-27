@@ -1,7 +1,5 @@
 use crate::interceptors::dynamic_policy::{
-    config::DynamicPolicyConfig,
-    interceptor::DynamicPolicyInterceptor,
-    store::DynamicPolicyStore,
+    config::DynamicPolicyConfig, interceptor::DynamicPolicyInterceptor, store::DynamicPolicyStore,
 };
 use std::sync::Arc;
 

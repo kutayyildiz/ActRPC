@@ -1,5 +1,9 @@
+//! Adapter: `Interceptor` trait → `JsonRpc2RequestEndpoint` → external interceptor process.
+//!
+//! Orchestrator speaks native `Interceptor`; this type translates to JSON-RPC wire calls.
+
 use crate::{
-    endpoint::JsonRpcEndpoint,
+    endpoint::JsonRpc2RequestEndpoint,
     error::InterceptorRuntimeError,
     interceptor::{Interceptor, InterceptorFuture},
 };
@@ -21,12 +25,12 @@ use std::sync::{
 };
 
 pub struct JsonRpcBackedInterceptor {
-    endpoint: Arc<JsonRpcEndpoint>,
+    endpoint: Arc<dyn JsonRpc2RequestEndpoint>,
     next_id: AtomicU64,
 }
 
 impl JsonRpcBackedInterceptor {
-    pub fn new(endpoint: Arc<JsonRpcEndpoint>) -> Self {
+    pub fn new(endpoint: Arc<dyn JsonRpc2RequestEndpoint>) -> Self {
         Self {
             endpoint,
             next_id: AtomicU64::new(1),

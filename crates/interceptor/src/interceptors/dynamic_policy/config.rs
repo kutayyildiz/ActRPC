@@ -60,10 +60,11 @@ impl DynamicPolicyConfig {
     pub fn from_path(path: impl AsRef<Path>) -> Result<Self, DynamicPolicyError> {
         let path = path.as_ref();
         let format = DynamicPolicyConfigFormat::from_path(path)?;
-        let text = std::fs::read_to_string(path).map_err(|source| DynamicPolicyError::ConfigRead {
-            path: path.to_path_buf(),
-            source,
-        })?;
+        let text =
+            std::fs::read_to_string(path).map_err(|source| DynamicPolicyError::ConfigRead {
+                path: path.to_path_buf(),
+                source,
+            })?;
         Self::from_str_with_format(&text, format, path)
     }
 
@@ -88,8 +89,9 @@ impl DynamicPolicyConfig {
             && self.unscoped_policy.allowed_method_targets.is_empty()
         {
             return Err(DynamicPolicyError::InvalidConfig {
-                message: "unscoped_policy.on_unscoped = scope requires non-empty allowed_method_targets"
-                    .to_owned(),
+                message:
+                    "unscoped_policy.on_unscoped = scope requires non-empty allowed_method_targets"
+                        .to_owned(),
             });
         }
         Ok(())

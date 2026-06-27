@@ -1,7 +1,13 @@
 use crate::{
-    endpoint::JsonRpcEndpoint,
+    endpoint::{EndpointCatalog, JsonRpc2RequestEndpoint},
     error::{MethodCallError, MethodProviderBuildError},
-    method::{MethodInfo, MethodName, MethodProvider, MethodProviderFuture, ProviderName},
+    method::{
+        MethodInfo, MethodName, MethodProvider, MethodProviderFuture, ProviderName,
+        rpc_bridge::{
+            invalid_request_message_response, logical_error_response, remap_json_rpc_response,
+            request_internal_id,
+        },
+    },
 };
 use actrpc_core::json_rpc::{
     JsonRpcId, JsonRpcMessage, JsonRpcParams, JsonRpcRequest, JsonRpcResponse,
@@ -41,7 +47,8 @@ pub struct McpMethodProvider {
     name: ProviderName,
     description: Option<String>,
     info: serde_json::Value,
-    endpoint: Arc<JsonRpcEndpoint>,
+    endpoint: Arc<dyn JsonRpc2RequestEndpoint>,
+    endpoint_name: crate::endpoint::config::EndpointName,
     methods: Vec<MethodInfo>,
     tool_names: HashSet<MethodName>,
     next_id: AtomicU64,
@@ -54,10 +61,18 @@ fn json_rpc_id(next_id: &AtomicU64) -> JsonRpcId {
 impl McpMethodProvider {
     pub async fn from_config(
         config: McpMethodSourceConfig,
-        endpoint: Arc<JsonRpcEndpoint>,
+        endpoint_catalog: &EndpointCatalog,
     ) -> Result<Self, MethodProviderBuildError> {
+        let endpoint = endpoint_catalog
+            .get_json_rpc2(&config.endpoint)
+            .map_err(|source| MethodProviderBuildError::InvalidConfig {
+                provider: config.name.clone(),
+                message: source.to_string(),
+            })?;
+        let endpoint_name = endpoint.endpoint_name().clone();
+
         let next_id = AtomicU64::new(1);
-        let tools_list = list_tools(config.name.clone(), &endpoint, &next_id).await?;
+        let tools_list = list_tools(config.name.clone(), endpoint.clone(), &next_id).await?;
 
         let include_tools: HashSet<String> = config.include_tools.into_iter().collect();
         let exclude_tools: HashSet<String> = config.exclude_tools.into_iter().collect();
@@ -81,13 +96,11 @@ impl McpMethodProvider {
             if !include_tools.is_empty() && !include_tools.contains(tool_name) {
                 continue;
             }
-
             if exclude_tools.contains(tool_name) {
                 continue;
             }
 
-            let method_name = MethodName::new(tool_name);
-
+            let method_name = MethodName::from(tool_name);
             if !tool_names.insert(method_name.clone()) {
                 return Err(MethodProviderBuildError::DuplicateMethod {
                     provider: config.name.clone(),
@@ -95,14 +108,15 @@ impl McpMethodProvider {
                 });
             }
 
-            let description = tool
-                .get("description")
-                .and_then(Value::as_str)
-                .map(str::to_owned);
-
+            let params_schema = tool.get("inputSchema").cloned();
             methods.push(MethodInfo {
                 name: method_name,
-                description,
+                description: tool
+                    .get("description")
+                    .and_then(Value::as_str)
+                    .map(str::to_owned),
+                params_schema,
+                result_schema: None,
                 info: tool.clone(),
             });
         }
@@ -122,14 +136,11 @@ impl McpMethodProvider {
             description: config.description,
             info: Value::Object(provider_info),
             endpoint,
+            endpoint_name,
             methods,
             tool_names,
             next_id,
         })
-    }
-
-    fn next_id(&self) -> JsonRpcId {
-        json_rpc_id(&self.next_id)
     }
 }
 
@@ -139,7 +150,7 @@ impl MethodProvider for McpMethodProvider {
     }
 
     fn endpoint(&self) -> Option<&crate::endpoint::EndpointName> {
-        Some(&self.endpoint.name)
+        Some(&self.endpoint_name)
     }
 
     fn snapshot(&self) -> crate::method::MethodProviderSnapshot {
@@ -195,7 +206,7 @@ impl MethodProvider for McpMethodProvider {
         Ok(JsonRpcMessage::Single(JsonRpcSingleMessage::Request(
             JsonRpcRequest {
                 jsonrpc: JsonRpcVersion::V2_0,
-                id: self.next_id(),
+                id: json_rpc_id(&self.next_id),
                 method: "tools/call".to_owned(),
                 params: Some(JsonRpcParams::Object(call_params)),
             },
@@ -208,37 +219,83 @@ impl MethodProvider for McpMethodProvider {
         message: JsonRpcMessage,
     ) -> MethodProviderFuture<'a, Result<JsonRpcMessage, MethodCallError>> {
         Box::pin(async move {
-            let JsonRpcMessage::Single(JsonRpcSingleMessage::Request(r)) = message else {
+            let request = match message {
+                JsonRpcMessage::Single(JsonRpcSingleMessage::Request(request)) => request,
+                other => {
+                    return invalid_request_message_response(&self.name, method, other);
+                }
+            };
+
+            let Some(internal_id) = request_internal_id(&request.id) else {
                 return Err(MethodCallError::InvalidResponse {
                     provider: self.name.clone(),
                     method: method.clone(),
-                    message: "provider send_message expected a request message".to_owned(),
+                    message: "provider send_message expected a request with id".to_owned(),
                 });
             };
-            let resp =
-                self.endpoint
-                    .request(r)
-                    .await
-                    .map_err(|source| MethodCallError::Transport {
+
+            let external_id = json_rpc_id(&self.next_id);
+
+            let arguments = match request.params {
+                Some(JsonRpcParams::Object(map)) => map
+                    .get("arguments")
+                    .cloned()
+                    .unwrap_or_else(|| Value::Object(Map::new())),
+                Some(JsonRpcParams::Array(_)) => {
+                    return Err(MethodCallError::InvalidParams {
                         provider: self.name.clone(),
                         method: method.clone(),
-                        source,
-                    })?;
-            Ok(JsonRpcMessage::Single(JsonRpcSingleMessage::Response(resp)))
+                        message: "MCP tool arguments must be JSON object params".to_owned(),
+                    });
+                }
+                None => Value::Object(Map::new()),
+            };
+
+            let mut call_params = Map::new();
+            call_params.insert("name".to_owned(), Value::String(method.as_str().to_owned()));
+            call_params.insert("arguments".to_owned(), arguments);
+
+            let external_req = JsonRpcRequest {
+                jsonrpc: request.jsonrpc,
+                id: external_id.clone(),
+                method: "tools/call".to_owned(),
+                params: Some(JsonRpcParams::Object(call_params)),
+            };
+
+            let resp = self
+                .endpoint
+                .request(external_req)
+                .await
+                .map_err(|source| MethodCallError::Transport {
+                    provider: self.name.clone(),
+                    method: method.clone(),
+                    source,
+                })?;
+
+            let remapped = match remap_json_rpc_response(internal_id.clone(), external_id, resp) {
+                Ok(response) => response,
+                Err(message) => {
+                    return Ok(logical_error_response(internal_id, message));
+                }
+            };
+
+            Ok(JsonRpcMessage::Single(JsonRpcSingleMessage::Response(
+                remapped,
+            )))
         })
     }
 }
 
 async fn list_tools(
     provider: ProviderName,
-    endpoint: &JsonRpcEndpoint,
+    endpoint: Arc<dyn JsonRpc2RequestEndpoint>,
     next_id: &AtomicU64,
 ) -> Result<Value, MethodProviderBuildError> {
-    let id = json_rpc_id(next_id);
+    let external_id = json_rpc_id(next_id);
 
     let req = JsonRpcRequest {
         jsonrpc: JsonRpcVersion::V2_0,
-        id: id.clone(),
+        id: external_id.clone(),
         method: "tools/list".to_owned(),
         params: None,
     };
@@ -250,17 +307,16 @@ async fn list_tools(
         }
     })?;
 
-    match response {
-        JsonRpcResponse::Success(success) => {
-            if success.id != id {
-                return Err(MethodProviderBuildError::DiscoveryFailed {
-                    provider,
-                    message: "MCP tools/list response id mismatch".to_owned(),
-                });
+    let remapped =
+        remap_json_rpc_response(external_id.clone(), external_id, response).map_err(|message| {
+            MethodProviderBuildError::DiscoveryFailed {
+                provider: provider.clone(),
+                message,
             }
+        })?;
 
-            Ok(success.result)
-        }
+    match remapped {
+        JsonRpcResponse::Success(success) => Ok(success.result),
 
         JsonRpcResponse::Error(error) => Err(MethodProviderBuildError::DiscoveryFailed {
             provider,

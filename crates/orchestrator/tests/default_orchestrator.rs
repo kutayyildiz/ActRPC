@@ -3,8 +3,8 @@ use actrpc_core::{
     action::{ActionKind, ActionSpec, RequestedActionRecord},
     interception::{InterceptionRequest, InterceptionResponse, InterceptorContinuation},
     json_rpc::{
-        JsonRpcId, JsonRpcMessage, JsonRpcParams, JsonRpcRequest, JsonRpcResponse,
-        JsonRpcSingleMessage, JsonRpcSuccessResponse, JsonRpcVersion,
+        JsonRpcId, JsonRpcMessage, JsonRpcParams, JsonRpcResponse, JsonRpcSingleMessage,
+        JsonRpcSuccessResponse, JsonRpcVersion,
     },
 };
 use actrpc_orchestrator::{
@@ -57,9 +57,10 @@ async fn default_orchestrator_forwards_without_interceptors() {
 
     let sent = client.sent();
     assert_eq!(sent.len(), 1);
-    assert_eq!(
-        sent[0],
-        request_message("sum", Some(JsonRpcParams::Array(vec![json!(1), json!(2)])))
+    assert_sent_request(
+        &sent[0],
+        "sum",
+        Some(JsonRpcParams::Array(vec![json!(1), json!(2)])),
     );
 }
 
@@ -103,12 +104,10 @@ async fn outbound_action_mutates_message_before_downstream_send() {
 
     let sent = client.sent();
     assert_eq!(sent.len(), 1);
-    assert_eq!(
-        sent[0],
-        request_message(
-            "sum",
-            Some(JsonRpcParams::Array(vec![json!(10), json!(20)]))
-        )
+    assert_sent_request(
+        &sent[0],
+        "sum",
+        Some(JsonRpcParams::Array(vec![json!(10), json!(20)])),
     );
 
     let seen = interceptor.seen();
@@ -335,12 +334,10 @@ async fn reinvoke_reuses_prior_actions_only_for_same_interceptor() {
 
     let sent = client.sent();
     assert_eq!(sent.len(), 1);
-    assert_eq!(
-        sent[0],
-        request_message(
-            "sum",
-            Some(JsonRpcParams::Array(vec![json!(10), json!(20)]))
-        )
+    assert_sent_request(
+        &sent[0],
+        "sum",
+        Some(JsonRpcParams::Array(vec![json!(10), json!(20)])),
     );
 }
 
@@ -396,7 +393,10 @@ async fn interception_id_is_stable_across_reinvoke_and_unique_per_interceptor() 
     let second_seen = second.seen();
     assert_eq!(second_seen.len(), 1);
     assert_eq!(second_seen[0].call_id, first_seen[0].call_id);
-    assert_ne!(second_seen[0].interception_id, first_seen[0].interception_id);
+    assert_ne!(
+        second_seen[0].interception_id,
+        first_seen[0].interception_id
+    );
 }
 
 #[tokio::test]
@@ -451,10 +451,8 @@ async fn test_orchestrator(
         client: client as Arc<dyn JsonRpcClient<Error = TransportError>>,
     };
     let endpoint_name = actrpc_orchestrator::EndpointName::new("test_ep");
-    let ep_config = actrpc_orchestrator::EndpointConfig {
-        name: endpoint_name.clone(),
-        target: dummy_target(),
-    };
+    let ep_config =
+        actrpc_orchestrator::EndpointConfig::legacy(endpoint_name.clone(), dummy_target());
     let endpoint_catalog = actrpc_orchestrator::EndpointCatalog::from_configs(
         vec![ep_config],
         &[],
@@ -474,11 +472,15 @@ async fn test_orchestrator(
                     MethodInfo {
                         name: MethodName::from("sum"),
                         description: None,
+                        params_schema: None,
+                        result_schema: None,
                         info: json!({}),
                     },
                     MethodInfo {
                         name: MethodName::from("get"),
                         description: None,
+                        params_schema: None,
+                        result_schema: None,
                         info: json!({}),
                     },
                 ],
@@ -641,9 +643,34 @@ impl JsonRpcClient for RecordingClient {
         &'a self,
         message: JsonRpcMessage,
     ) -> JsonRpcClientFuture<'a, Result<JsonRpcMessage, Self::Error>> {
+        let template = self.response.clone();
         Box::pin(async move {
-            self.sent.lock().unwrap().push(message);
-            Ok(self.response.clone())
+            self.sent.lock().unwrap().push(message.clone());
+
+            let JsonRpcMessage::Single(JsonRpcSingleMessage::Request(request)) = message else {
+                return Ok(template);
+            };
+
+            let JsonRpcMessage::Single(JsonRpcSingleMessage::Response(response)) = template else {
+                return Err(TransportError::Internal {
+                    message: "recording client expected a response template".to_owned(),
+                });
+            };
+
+            let response = match response {
+                JsonRpcResponse::Success(mut success) => {
+                    success.id = request.id;
+                    JsonRpcResponse::Success(success)
+                }
+                JsonRpcResponse::Error(mut error) => {
+                    error.id = request.id;
+                    JsonRpcResponse::Error(error)
+                }
+            };
+
+            Ok(JsonRpcMessage::Single(JsonRpcSingleMessage::Response(
+                response,
+            )))
         })
     }
 }
@@ -664,13 +691,12 @@ impl JsonRpcClientProvider for StaticProvider {
     }
 }
 
-fn request_message(method: &str, params: Option<JsonRpcParams>) -> JsonRpcMessage {
-    JsonRpcMessage::Single(JsonRpcSingleMessage::Request(JsonRpcRequest {
-        jsonrpc: JsonRpcVersion::V2_0,
-        id: JsonRpcId::Number(1.into()),
-        method: method.to_owned(),
-        params,
-    }))
+fn assert_sent_request(message: &JsonRpcMessage, method: &str, params: Option<JsonRpcParams>) {
+    let JsonRpcMessage::Single(JsonRpcSingleMessage::Request(request)) = message else {
+        panic!("expected JSON-RPC request message");
+    };
+    assert_eq!(request.method, method);
+    assert_eq!(request.params, params);
 }
 
 fn response_message(result: serde_json::Value) -> JsonRpcMessage {
@@ -686,7 +712,7 @@ fn response_message(result: serde_json::Value) -> JsonRpcMessage {
 fn dummy_target() -> TransportTarget {
     TransportTarget::Http(HttpTarget {
         url: "http://example.invalid/rpc".to_owned(),
-        headers: vec![],
+        headers: actrpc_transport::HeaderPairs::default(),
         timeout_ms: 1_000,
     })
 }

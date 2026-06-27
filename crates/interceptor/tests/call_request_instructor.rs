@@ -261,4 +261,3 @@ async fn instructor_does_not_inject_hardcoded_call_request_text() {
     assert!(!prompt.contains("_actrpc_call_requests"));
     assert!(!prompt.contains("dynamic_policy"));
 }
-

@@ -6,6 +6,7 @@ use crate::{
         providers::{
             json_rpc::{JsonRpcMethodProvider, JsonRpcMethodSourceConfig},
             mcp::{McpMethodProvider, McpMethodSourceConfig},
+            rest::{RestMethodProvider, RestMethodSourceConfig},
         },
     },
 };
@@ -17,6 +18,7 @@ use std::sync::Arc;
 pub enum MethodSourceConfig {
     JsonRpc(JsonRpcMethodSourceConfig),
     Mcp(McpMethodSourceConfig),
+    Rest(RestMethodSourceConfig),
 }
 
 impl MethodSourceConfig {
@@ -24,6 +26,7 @@ impl MethodSourceConfig {
         match self {
             Self::JsonRpc(config) => &config.provider,
             Self::Mcp(config) => &config.name,
+            Self::Rest(config) => &config.provider,
         }
     }
 
@@ -37,13 +40,11 @@ impl MethodSourceConfig {
                 Ok(Arc::new(provider) as Arc<dyn MethodProvider>)
             }
             Self::Mcp(config) => {
-                let endpoint = endpoint_catalog.get(&config.endpoint).ok_or_else(|| {
-                    MethodProviderBuildError::InvalidConfig {
-                        provider: config.name.clone(),
-                        message: format!("unknown endpoint '{}'", config.endpoint.as_str()),
-                    }
-                })?;
-                let provider = McpMethodProvider::from_config(config, endpoint).await?;
+                let provider = McpMethodProvider::from_config(config, endpoint_catalog).await?;
+                Ok(Arc::new(provider) as Arc<dyn MethodProvider>)
+            }
+            Self::Rest(config) => {
+                let provider = RestMethodProvider::from_config(config, endpoint_catalog)?;
                 Ok(Arc::new(provider) as Arc<dyn MethodProvider>)
             }
         }

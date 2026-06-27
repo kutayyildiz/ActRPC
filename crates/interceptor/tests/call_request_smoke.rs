@@ -137,7 +137,10 @@ async fn call_request_executor_config_smoke() {
         .await
         .expect("first executor intercept should succeed");
 
-    assert_eq!(first_response.continuation, InterceptorContinuation::Reinvoke);
+    assert_eq!(
+        first_response.continuation,
+        InterceptorContinuation::Reinvoke
+    );
     assert_eq!(first_response.actions.len(), 1);
     assert_eq!(first_response.actions[0].kind, CallMethod::action_kind());
 

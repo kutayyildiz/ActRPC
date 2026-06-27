@@ -1,9 +1,13 @@
 use crate::{
-    endpoint::JsonRpcEndpoint,
+    endpoint::{EndpointCatalog, EndpointCatalogError, JsonRpc2RequestEndpoint},
     error::{MethodCallError, MethodProviderBuildError, MethodProviderRefreshError},
     method::{
         MethodInfo, MethodName, MethodProvider, MethodProviderFuture, MethodProviderSnapshot,
         ProviderName,
+        rpc_bridge::{
+            invalid_request_message_response, logical_error_response, remap_json_rpc_response,
+            request_internal_id,
+        },
     },
 };
 use actrpc_core::json_rpc::{
@@ -61,7 +65,8 @@ pub struct JsonRpcMethodSourceConfig {
 
 pub struct JsonRpcMethodProvider {
     provider: ProviderName,
-    endpoint: Arc<JsonRpcEndpoint>,
+    endpoint: Arc<dyn JsonRpc2RequestEndpoint>,
+    endpoint_name: crate::endpoint::config::EndpointName,
     snapshot: RwLock<MethodProviderSnapshot>,
     discovery: JsonRpcMethodDiscoveryConfig,
     next_id: AtomicU64,
@@ -74,27 +79,24 @@ fn json_rpc_id(next_id: &AtomicU64) -> JsonRpcId {
 impl JsonRpcMethodProvider {
     pub async fn from_config(
         config: JsonRpcMethodSourceConfig,
-        endpoint_catalog: &crate::endpoint::EndpointCatalog,
+        endpoint_catalog: &EndpointCatalog,
     ) -> Result<Self, MethodProviderBuildError> {
-        let endpoint = endpoint_catalog
-            .get(&config.endpoint)
-            .ok_or_else(|| MethodProviderBuildError::InvalidConfig {
-                provider: config.provider.clone(),
-                message: format!("unknown endpoint '{}'", config.endpoint.as_str()),
-            })?
-            .clone();
-
-        if matches!(
+        let watchable = matches!(
             config.discovery,
             JsonRpcMethodDiscoveryConfig::Watchable { .. }
-        ) && !endpoint.session_capable()
-        {
-            return Err(MethodProviderBuildError::EndpointDoesNotSupportSession {
-                endpoint: config.endpoint.clone(),
-                provider: config.provider.clone(),
-            });
+        );
+
+        if watchable {
+            endpoint_catalog
+                .get_json_rpc2_session(&config.endpoint)
+                .map_err(map_catalog_error(&config.provider))?;
         }
 
+        let endpoint = endpoint_catalog
+            .get_json_rpc2(&config.endpoint)
+            .map_err(map_catalog_error(&config.provider))?;
+
+        let endpoint_name = endpoint.endpoint_name().clone();
         let next_id = AtomicU64::new(1);
 
         let initial_snapshot = match &config.discovery {
@@ -139,6 +141,7 @@ impl JsonRpcMethodProvider {
         Ok(Self {
             provider: config.provider,
             endpoint,
+            endpoint_name,
             snapshot: RwLock::new(initial_snapshot),
             discovery: config.discovery,
             next_id,
@@ -146,14 +149,15 @@ impl JsonRpcMethodProvider {
     }
 
     async fn call_initialize(
-        endpoint: &JsonRpcEndpoint,
+        endpoint: &Arc<dyn JsonRpc2RequestEndpoint>,
         method: &str,
         provider: &ProviderName,
         next_id: &AtomicU64,
     ) -> Result<MethodProviderSnapshot, MethodProviderBuildError> {
+        let external_id = json_rpc_id(next_id);
         let req = JsonRpcRequest {
             jsonrpc: JsonRpcVersion::V2_0,
-            id: json_rpc_id(next_id),
+            id: external_id.clone(),
             method: method.to_owned(),
             params: None,
         };
@@ -163,7 +167,14 @@ impl JsonRpcMethodProvider {
                 source,
             }
         })?;
-        let JsonRpcResponse::Success(success) = resp else {
+        let remapped =
+            remap_json_rpc_response(external_id.clone(), external_id, resp).map_err(|message| {
+                MethodProviderBuildError::DiscoveryFailed {
+                    provider: provider.clone(),
+                    message,
+                }
+            })?;
+        let JsonRpcResponse::Success(success) = remapped else {
             return Err(MethodProviderBuildError::DiscoveryFailed {
                 provider: provider.clone(),
                 message: "initialize returned error response".to_owned(),
@@ -203,8 +214,17 @@ impl JsonRpcMethodProvider {
         Ok(())
     }
 
-    fn next_id(&self) -> JsonRpcId {
+    fn next_external_id(&self) -> JsonRpcId {
         json_rpc_id(&self.next_id)
+    }
+}
+
+fn map_catalog_error(
+    provider: &ProviderName,
+) -> impl FnOnce(EndpointCatalogError) -> MethodProviderBuildError + '_ {
+    move |source| MethodProviderBuildError::InvalidConfig {
+        provider: provider.clone(),
+        message: source.to_string(),
     }
 }
 
@@ -214,7 +234,7 @@ impl MethodProvider for JsonRpcMethodProvider {
     }
 
     fn endpoint(&self) -> Option<&crate::endpoint::EndpointName> {
-        Some(&self.endpoint.name)
+        Some(&self.endpoint_name)
     }
 
     fn is_watchable(&self) -> bool {
@@ -246,7 +266,7 @@ impl MethodProvider for JsonRpcMethodProvider {
         Ok(JsonRpcMessage::Single(JsonRpcSingleMessage::Request(
             JsonRpcRequest {
                 jsonrpc: JsonRpcVersion::V2_0,
-                id: self.next_id(),
+                id: self.next_external_id(),
                 method: method.as_str().to_owned(),
                 params,
             },
@@ -259,23 +279,49 @@ impl MethodProvider for JsonRpcMethodProvider {
         message: JsonRpcMessage,
     ) -> MethodProviderFuture<'a, Result<JsonRpcMessage, MethodCallError>> {
         Box::pin(async move {
-            let JsonRpcMessage::Single(JsonRpcSingleMessage::Request(r)) = message else {
+            let request = match message {
+                JsonRpcMessage::Single(JsonRpcSingleMessage::Request(request)) => request,
+                other => {
+                    return invalid_request_message_response(&self.provider, method, other);
+                }
+            };
+
+            let Some(internal_id) = request_internal_id(&request.id) else {
                 return Err(MethodCallError::InvalidResponse {
                     provider: self.provider.clone(),
                     method: method.clone(),
-                    message: "provider send_message expected a request message".to_owned(),
+                    message: "provider send_message expected a request with id".to_owned(),
                 });
             };
-            let resp =
-                self.endpoint
-                    .request(r)
-                    .await
-                    .map_err(|source| MethodCallError::Transport {
-                        provider: self.provider.clone(),
-                        method: method.clone(),
-                        source,
-                    })?;
-            Ok(JsonRpcMessage::Single(JsonRpcSingleMessage::Response(resp)))
+
+            let external_id = self.next_external_id();
+            let external_req = JsonRpcRequest {
+                jsonrpc: request.jsonrpc,
+                id: external_id.clone(),
+                method: method.as_str().to_owned(),
+                params: request.params,
+            };
+
+            let resp = self
+                .endpoint
+                .request(external_req)
+                .await
+                .map_err(|source| MethodCallError::Transport {
+                    provider: self.provider.clone(),
+                    method: method.clone(),
+                    source,
+                })?;
+
+            let remapped = match remap_json_rpc_response(internal_id.clone(), external_id, resp) {
+                Ok(response) => response,
+                Err(message) => {
+                    return Ok(logical_error_response(internal_id, message));
+                }
+            };
+
+            Ok(JsonRpcMessage::Single(JsonRpcSingleMessage::Response(
+                remapped,
+            )))
         })
     }
 
@@ -297,9 +343,10 @@ impl MethodProvider for JsonRpcMethodProvider {
         let provider = self.provider.clone();
         let endpoint = self.endpoint.clone();
         Box::pin(async move {
+            let external_id = json_rpc_id(&self.next_id);
             let req = JsonRpcRequest {
                 jsonrpc: JsonRpcVersion::V2_0,
-                id: self.next_id(),
+                id: external_id.clone(),
                 method: refresh_method,
                 params: None,
             };
@@ -309,7 +356,12 @@ impl MethodProvider for JsonRpcMethodProvider {
                     source,
                 }
             })?;
-            let JsonRpcResponse::Success(success) = resp else {
+            let remapped = remap_json_rpc_response(external_id.clone(), external_id, resp)
+                .map_err(|message| MethodProviderRefreshError::Decode {
+                    provider: provider.clone(),
+                    message,
+                })?;
+            let JsonRpcResponse::Success(success) = remapped else {
                 return Err(MethodProviderRefreshError::Decode {
                     provider: provider.clone(),
                     message: "refresh returned error".to_owned(),

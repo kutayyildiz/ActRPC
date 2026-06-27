@@ -84,7 +84,9 @@ impl DynamicPolicyStore {
     pub fn release_scope(&self, scope_id: ScopeId) {
         let mut guard = self.write_guard();
         guard.scopes.remove(&scope_id);
-        guard.calls.retain(|_, bound_scope_id| *bound_scope_id != scope_id);
+        guard
+            .calls
+            .retain(|_, bound_scope_id| *bound_scope_id != scope_id);
     }
 
     pub fn release_scopes_for_root(&self, root_call_id: CallId) {
@@ -100,7 +102,11 @@ impl DynamicPolicyStore {
             guard.scopes.remove(&scope_id);
         }
 
-        let remaining_scopes = guard.scopes.keys().copied().collect::<std::collections::HashSet<_>>();
+        let remaining_scopes = guard
+            .scopes
+            .keys()
+            .copied()
+            .collect::<std::collections::HashSet<_>>();
         guard
             .calls
             .retain(|_, scope_id| remaining_scopes.contains(scope_id));

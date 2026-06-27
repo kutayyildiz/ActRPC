@@ -1,4 +1,5 @@
 use crate::action::ActionInvocationContext;
+use crate::error::ActionHandlerError;
 use crate::{
     action::{ActionRegistry, build_builtin_action_registry},
     error::{ActionError, InterceptorError, MethodCallError, OrchestratorError},
@@ -19,7 +20,6 @@ use actrpc_core::{
         JsonRpcErrorResponse, JsonRpcMessage, JsonRpcResponse, JsonRpcSingleMessage, JsonRpcVersion,
     },
 };
-use crate::error::ActionHandlerError;
 use std::{sync::Arc, time::Duration};
 use tokio::time::timeout;
 
@@ -217,10 +217,7 @@ impl CallExecution {
                             round_actions.push(resolved);
                         }
                         Err(source) => {
-                            round_actions.push(failed_action_record(
-                                &requested_action,
-                                &source,
-                            ));
+                            round_actions.push(failed_action_record(&requested_action, &source));
                             resolved_action_history.push(round_actions);
                             return Err(OrchestratorError::Action(ActionError::HandlerFailed {
                                 interceptor: entry.name.clone(),

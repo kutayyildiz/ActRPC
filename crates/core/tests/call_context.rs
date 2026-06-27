@@ -40,11 +40,13 @@ fn interception_context_serde_roundtrip() {
 #[test]
 fn interception_context_is_empty() {
     assert!(InterceptionContext::default().is_empty());
-    assert!(!InterceptionContext {
-        private: Some(json!(1)),
-        ..Default::default()
-    }
-    .is_empty());
+    assert!(
+        !InterceptionContext {
+            private: Some(json!(1)),
+            ..Default::default()
+        }
+        .is_empty()
+    );
 }
 
 #[test]

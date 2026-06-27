@@ -33,7 +33,10 @@ impl Interceptor for CallRequestInterceptor {
         &'a self,
     ) -> actrpc_orchestrator::interceptor::InterceptorFuture<
         'a,
-        Result<actrpc_core::InterceptorInitialization, actrpc_orchestrator::error::InterceptorRuntimeError>,
+        Result<
+            actrpc_core::InterceptorInitialization,
+            actrpc_orchestrator::error::InterceptorRuntimeError,
+        >,
     >
     where
         Self: 'a,

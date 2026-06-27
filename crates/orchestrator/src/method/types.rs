@@ -127,6 +127,12 @@ pub struct MethodInfo {
     pub description: Option<String>,
 
     #[serde(default)]
+    pub params_schema: Option<serde_json::Value>,
+
+    #[serde(default)]
+    pub result_schema: Option<serde_json::Value>,
+
+    #[serde(default)]
     pub info: serde_json::Value,
 }
 

@@ -1,11 +1,13 @@
 mod http;
 mod local_ipc;
+mod rest_http;
 mod stdio;
 mod tcp;
 mod web_socket;
 
 pub use http::HttpJsonRpcClient;
 pub use local_ipc::LocalIpcJsonRpcClient;
+pub use rest_http::{HttpRestClient, RestHttpExecuteRequest, RestHttpExecuteResponse};
 pub use stdio::StdioJsonRpcClient;
 pub use tcp::TcpJsonRpcClient;
 pub use web_socket::WebSocketJsonRpcClient;

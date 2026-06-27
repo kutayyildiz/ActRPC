@@ -1,7 +1,5 @@
-use actrpc_interceptor::interceptors::dynamic_policy::{
-    DynamicPolicyConfig, UnscopedBehavior,
-};
 use actrpc_core::MethodTarget;
+use actrpc_interceptor::interceptors::dynamic_policy::{DynamicPolicyConfig, UnscopedBehavior};
 
 #[test]
 fn default_config_uses_allow_unscoped() {
@@ -16,8 +14,12 @@ fn scope_unscoped_requires_non_empty_allowlist() {
 [unscoped_policy]
 on_unscoped = "scope"
 "#;
-    let err = DynamicPolicyConfig::from_str_with_format(text, actrpc_interceptor::interceptors::dynamic_policy::config::DynamicPolicyConfigFormat::Toml, "test.toml")
-        .unwrap_err();
+    let err = DynamicPolicyConfig::from_str_with_format(
+        text,
+        actrpc_interceptor::interceptors::dynamic_policy::config::DynamicPolicyConfigFormat::Toml,
+        "test.toml",
+    )
+    .unwrap_err();
     assert!(err.to_string().contains("allowed_method_targets"));
 }
 
@@ -31,10 +33,16 @@ on_unscoped = "scope"
 provider = "agents"
 method = "invoke"
 "#;
-    let config =
-        DynamicPolicyConfig::from_str_with_format(text, actrpc_interceptor::interceptors::dynamic_policy::config::DynamicPolicyConfigFormat::Toml, "test.toml")
-            .unwrap();
-    assert_eq!(config.unscoped_policy.on_unscoped, UnscopedBehavior::ScopeRoot);
+    let config = DynamicPolicyConfig::from_str_with_format(
+        text,
+        actrpc_interceptor::interceptors::dynamic_policy::config::DynamicPolicyConfigFormat::Toml,
+        "test.toml",
+    )
+    .unwrap();
+    assert_eq!(
+        config.unscoped_policy.on_unscoped,
+        UnscopedBehavior::ScopeRoot
+    );
     assert_eq!(
         config.unscoped_policy.allowed_method_targets,
         vec![MethodTarget {
